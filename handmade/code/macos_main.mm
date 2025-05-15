@@ -50,6 +50,9 @@ internal void render_weird_gradient(int x_offset, int y_offset);
   macos_refresh_buffer(window);
   render_weird_gradient(x_offset, y_offset);
   macos_draw_buffer(window);
+  NSString *title = [NSString
+      stringWithFormat:@"Handmade Here (%dx%d)", bitmapWidth, bitmapHeight];
+  [window setTitle:title];
 }
 @end
 
@@ -69,7 +72,7 @@ int main(int argc, const char *argv[]) {
                   backing:NSBackingStoreBuffered
                     defer:NO];
   [window setBackgroundColor:NSColor.blackColor];
-  [window setTitle:@"Handmade Hero"];
+
   [window makeKeyAndOrderFront:nil];
 
   HandmadeWindowDelegate *windowDelegate =
@@ -88,6 +91,10 @@ int main(int argc, const char *argv[]) {
     macos_draw_buffer(window);
     x_offset += 1;
     y_offset += 1;
+
+    NSString *title = [NSString
+        stringWithFormat:@"Handmade Here (%dx%d)", bitmapWidth, bitmapHeight];
+    [window setTitle:title];
 
     NSEvent *event;
     do {
