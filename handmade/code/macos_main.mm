@@ -20,21 +20,31 @@ typedef int64_t s64;
 typedef float f32;
 typedef double f64;
 
+typedef struct MacosOffscreenBuffer {
+  u8 *buffer;
+  int width;
+  int height;
+  int pitch;
+} Buffer;
+
+typedef struct RectInt {
+  int x, y, width, height;
+} RectInt;
+
 global const u16 RENDER_WIDTH = 1280;
 global const u16 RENDER_HEIGHT = 720;
-global const int BYTES_PER_PIXEL = 4;
+global const u8 BYTES_PER_PIXEL = 4;
 
 global BOOL RUNNING;
-global u8 *buffer;
-global int bitmapWidth;
-global int bitmapHeight;
-global int pitch;
+global Buffer global_backbuffer;
 global int x_offset = 0;
 global int y_offset = 0;
 
-internal void macos_draw_buffer(NSWindow *window);
-internal void macos_refresh_buffer(NSWindow *window);
-internal void render_weird_gradient(int x_offset, int y_offset);
+internal RectInt get_window_rect(const NSWindow *window);
+internal void macos_buffer_clear(Buffer *buffer, int width, int height);
+internal void macos_buffer_display(Buffer *buffer, const NSWindow *window);
+internal void render_weird_gradient(const Buffer *buffer, int x_offset,
+                                    int y_offset);
 
 @interface HandmadeWindowDelegate : NSObject <NSWindowDelegate>
 ;
@@ -47,11 +57,13 @@ internal void render_weird_gradient(int x_offset, int y_offset);
 }
 - (void)windowDidResize:(NSNotification *)notification {
   NSWindow *window = (NSWindow *)notification.object;
-  macos_refresh_buffer(window);
-  render_weird_gradient(x_offset, y_offset);
-  macos_draw_buffer(window);
+  RectInt rect = get_window_rect(window);
+  macos_buffer_clear(&global_backbuffer, rect.width, rect.height);
+  render_weird_gradient(&global_backbuffer, x_offset, y_offset);
+  macos_buffer_display(&global_backbuffer, window);
+
   NSString *title = [NSString
-      stringWithFormat:@"Handmade Here (%dx%d)", bitmapWidth, bitmapHeight];
+      stringWithFormat:@"Handmade Here (%dx%d)", rect.width, rect.height];
   [window setTitle:title];
 }
 @end
@@ -72,7 +84,6 @@ int main(int argc, const char *argv[]) {
                   backing:NSBackingStoreBuffered
                     defer:NO];
   [window setBackgroundColor:NSColor.blackColor];
-
   [window makeKeyAndOrderFront:nil];
 
   HandmadeWindowDelegate *windowDelegate =
@@ -80,21 +91,22 @@ int main(int argc, const char *argv[]) {
   [window setDelegate:windowDelegate];
   window.contentView.wantsLayer = YES;
 
-  macos_refresh_buffer(window);
+  RectInt rect = get_window_rect(window);
+  macos_buffer_clear(&global_backbuffer, rect.width, rect.height);
+  NSString *title = [NSString stringWithFormat:@"Handmade Here (%dx%d)",
+                                               global_backbuffer.width,
+                                               global_backbuffer.height];
+  [window setTitle:title];
 
   x_offset = 0;
   y_offset = 0;
   RUNNING = true;
   while (RUNNING) {
 
-    render_weird_gradient(x_offset, y_offset);
-    macos_draw_buffer(window);
+    render_weird_gradient(&global_backbuffer, x_offset, y_offset);
+    macos_buffer_display(&global_backbuffer, window);
     x_offset += 1;
     y_offset += 1;
-
-    NSString *title = [NSString
-        stringWithFormat:@"Handmade Here (%dx%d)", bitmapWidth, bitmapHeight];
-    [window setTitle:title];
 
     NSEvent *event;
     do {
@@ -115,20 +127,28 @@ int main(int argc, const char *argv[]) {
   return 0;
 }
 
-void macos_draw_buffer(NSWindow *window) {
+internal RectInt get_window_rect(const NSWindow *window) {
+  RectInt rect;
+  rect.width = window.contentView.bounds.size.width;
+  rect.height = window.contentView.bounds.size.height;
+  return rect;
+}
+
+void macos_buffer_display(Buffer *buffer, const NSWindow *window) {
   @autoreleasepool {
     NSBitmapImageRep *imageRep = [[[NSBitmapImageRep alloc]
-        initWithBitmapDataPlanes:&buffer
-                      pixelsWide:bitmapWidth
-                      pixelsHigh:bitmapHeight
+        initWithBitmapDataPlanes:&buffer->buffer
+                      pixelsWide:buffer->width
+                      pixelsHigh:buffer->height
                    bitsPerSample:8
                  samplesPerPixel:BYTES_PER_PIXEL
                         hasAlpha:YES
                         isPlanar:NO
                   colorSpaceName:NSDeviceRGBColorSpace
-                     bytesPerRow:pitch
+                     bytesPerRow:buffer->pitch
                     bitsPerPixel:32] autorelease];
-    NSSize imageSize = NSMakeSize(bitmapWidth, bitmapHeight);
+
+    NSSize imageSize = NSMakeSize(buffer->width, buffer->height);
     NSImage *image = [[[NSImage alloc] initWithSize:imageSize] autorelease];
     [image addRepresentation:imageRep];
 
@@ -136,22 +156,23 @@ void macos_draw_buffer(NSWindow *window) {
   }
 }
 
-void macos_refresh_buffer(NSWindow *window) {
-  if (buffer) {
-    free(buffer);
-    buffer = NULL;
+void macos_buffer_clear(Buffer *buffer, int width, int height) {
+  if (buffer->buffer) {
+    free(buffer->buffer);
+    buffer->buffer = NULL;
   }
-  bitmapWidth = window.contentView.bounds.size.width;
-  bitmapHeight = window.contentView.bounds.size.height;
-  pitch = bitmapWidth * BYTES_PER_PIXEL;
-  buffer = (u8 *)malloc(pitch * bitmapHeight);
+
+  buffer->width = width;
+  buffer->height = height;
+  buffer->pitch = width * BYTES_PER_PIXEL;
+  buffer->buffer = (u8 *)malloc(buffer->pitch * height);
 }
 
-void render_weird_gradient(int x_offset, int y_offset) {
-  u8 *row = buffer;
-  for (int y = 0; y < bitmapHeight; ++y) {
+void render_weird_gradient(const Buffer *buffer, int x_offset, int y_offset) {
+  u8 *row = buffer->buffer;
+  for (int y = 0; y < buffer->height; ++y) {
     u32 *pixel = (u32 *)row;
-    for (int x = 0; x < bitmapWidth; ++x) {
+    for (int x = 0; x < buffer->width; ++x) {
       u8 r = 0;
       u8 g = (u8)(y + y_offset);
       u8 b = (u8)(x + x_offset);
@@ -159,6 +180,6 @@ void render_weird_gradient(int x_offset, int y_offset) {
       *pixel = (r | g << 8 | b << 16 | a << 24);
       pixel += 1;
     }
-    row += pitch;
+    row += buffer->pitch;
   }
 }
