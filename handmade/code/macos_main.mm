@@ -41,7 +41,7 @@ global int x_offset = 0;
 global int y_offset = 0;
 
 internal RectInt get_window_rect(const NSWindow *window);
-internal void macos_buffer_clear(Buffer *buffer, int width, int height);
+internal void macos_buffer_resize(Buffer *buffer, int width, int height);
 internal void macos_buffer_display(Buffer *buffer, const NSWindow *window);
 internal void render_weird_gradient(const Buffer *buffer, int x_offset,
                                     int y_offset);
@@ -58,7 +58,7 @@ internal void render_weird_gradient(const Buffer *buffer, int x_offset,
 - (void)windowDidResize:(NSNotification *)notification {
   NSWindow *window = (NSWindow *)notification.object;
   RectInt rect = get_window_rect(window);
-  macos_buffer_clear(&global_backbuffer, rect.width, rect.height);
+  macos_buffer_resize(&global_backbuffer, rect.width, rect.height);
   render_weird_gradient(&global_backbuffer, x_offset, y_offset);
   macos_buffer_display(&global_backbuffer, window);
 
@@ -92,7 +92,7 @@ int main(int argc, const char *argv[]) {
   window.contentView.wantsLayer = YES;
 
   RectInt rect = get_window_rect(window);
-  macos_buffer_clear(&global_backbuffer, rect.width, rect.height);
+  macos_buffer_resize(&global_backbuffer, rect.width, rect.height);
   NSString *title = [NSString stringWithFormat:@"Handmade Here (%dx%d)",
                                                global_backbuffer.width,
                                                global_backbuffer.height];
@@ -156,7 +156,7 @@ void macos_buffer_display(Buffer *buffer, const NSWindow *window) {
   }
 }
 
-void macos_buffer_clear(Buffer *buffer, int width, int height) {
+void macos_buffer_resize(Buffer *buffer, int width, int height) {
   if (buffer->buffer) {
     free(buffer->buffer);
     buffer->buffer = NULL;
