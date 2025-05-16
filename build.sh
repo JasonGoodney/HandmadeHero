@@ -3,8 +3,12 @@
 echo "Building Handmade Hero"
 
 CXX="clang"
+
 CXX_FLAGS="-g -Wall"
-OSX_LD_FLAGS="-framework AppKit"
+
+OSX_LD_FLAGS="-framework AppKit 
+              -framework IOKit"
+
 OUTPUT="handmade"
 
 mkdir -p ./build/bin
