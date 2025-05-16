@@ -17,6 +17,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <objc/NSObjCRuntime.h>
+#include <objc/objc.h>
 #include <stdio.h>
 
 #define internal static
@@ -34,6 +35,26 @@ typedef int64_t s64;
 typedef float f32;
 typedef double f64;
 
+enum
+{
+    HID_Page_GenericDesktop = 0x01,
+    HID_Page_Button         = 0x09,
+    HID_Page_Haptics        = 0x0E,
+};
+
+enum HatSwitchDirection
+{
+    HatSwitch_Top         = 0,
+    HatSwitch_TopRight    = 1,
+    HatSwitch_Right       = 2,
+    HatSwitch_BottomRight = 3,
+    HatSwitch_Bottom      = 4,
+    HatSwitch_BottomLeft  = 5,
+    HatSwitch_Left        = 6,
+    HatSwitch_TopLeft     = 7,
+    HatSwitch_None        = 8
+};
+
 typedef struct MacosOffscreenBuffer
 {
     u8 *buffer;
@@ -44,18 +65,18 @@ typedef struct MacosOffscreenBuffer
 
 struct DeviceUsage
 {
-    u32 id;
+    u32 usage_id;
     u32 state;
 };
 
-typedef struct MacosGamepad
+struct Gamepad
 {
     struct DeviceUsage face_top, face_bottom, face_left, face_right;
-    struct DeviceUsage dpad_up, dpad_down, dpad_left, dpad_right;
+    struct DeviceUsage dpad_x, dpad_y;
     struct DeviceUsage should_left, should_right;
     struct DeviceUsage trigger_left, trigger_right;
-    struct DeviceUsage joystick_left, joystick_right;
-} GamepadInput;
+    struct DeviceUsage analog_stick_left, analog_stick_right;
+};
 
 typedef struct RectInt
 {
@@ -68,13 +89,14 @@ global const u8 BYTES_PER_PIXEL = 4;
 
 global BOOL RUNNING;
 global Buffer global_backbuffer;
-global int x_offset = 0;
-global int y_offset = 0;
+global int x_offset       = 0;
+global int y_offset       = 0;
+global struct RectInt box = {RENDER_WIDTH / 2, RENDER_HEIGHT / 2, 50, 50};
 
 internal RectInt macos_get_window_rect(const NSWindow *window);
 internal void macos_buffer_resize(Buffer *buffer, int width, int height);
 internal void macos_buffer_display(Buffer *buffer, const NSWindow *window);
-internal void macos_init_gamepad(MacosGamepad *gamepad);
+internal void macos_init_gamepad(struct Gamepad *gamepad);
 internal void macos_device_input_callback(void *context, IOReturn result,
                                           void *sender, IOHIDValueRef value);
 internal void macos_device_callback(void *context, IOReturn result,
@@ -84,6 +106,13 @@ internal CFDictionaryRef macos_device_matching_dictionary(u32 usagePage,
 
 internal void render_weird_gradient(const Buffer *buffer, int x_offset,
                                     int y_offset);
+internal void render_box(const RectInt *box, const Buffer *buffer, int x_offset,
+                         int y_offset);
+internal void render(const Buffer *buffer)
+{
+    // render_weird_gradient(buffer, x_offset, y_offset);
+    render_box(&box, buffer, x_offset, y_offset);
+}
 
 @interface HandmadeWindowDelegate : NSObject <NSWindowDelegate>
 ;
@@ -101,7 +130,8 @@ internal void render_weird_gradient(const Buffer *buffer, int x_offset,
     NSWindow *window = (NSWindow *)notification.object;
     RectInt rect     = macos_get_window_rect(window);
     macos_buffer_resize(&global_backbuffer, rect.width, rect.height);
-    render_weird_gradient(&global_backbuffer, x_offset, y_offset);
+    // render_weird_gradient(&global_backbuffer, x_offset, y_offset);
+    render(&global_backbuffer);
     macos_buffer_display(&global_backbuffer, window);
 
     NSString *title = [NSString
@@ -112,7 +142,7 @@ internal void render_weird_gradient(const Buffer *buffer, int x_offset,
 
 int main(int argc, const char *argv[])
 {
-    MacosGamepad gamepad = {};
+    struct Gamepad gamepad = {};
     macos_init_gamepad(&gamepad);
 
     NSRect screenRect = [[NSScreen mainScreen] frame];
@@ -156,42 +186,25 @@ int main(int argc, const char *argv[])
 
         if (gamepad.face_right.state)
         {
-            x_offset += 1;
+            box.x += 1;
         }
         else if (gamepad.face_left.state)
         {
-            x_offset -= 1;
+            box.x -= 1;
         }
         else if (gamepad.face_top.state)
         {
-            y_offset += 1;
+            box.y -= 1;
         }
         else if (gamepad.face_bottom.state)
         {
-            y_offset -= 1;
-        }
-        else if (gamepad.joystick_right.state)
-        {
-            u32 state = gamepad.joystick_right.state;
-            if (state == 0)
-            {
-                y_offset += 1;
-            }
-            else if (state == 2)
-            {
-                x_offset += 1;
-            }
-            else if (state == 4)
-            {
-                y_offset -= 1;
-            }
-            else if (state == 6)
-            {
-                x_offset -= 1;
-            }
+            box.y += 1;
         }
 
-        render_weird_gradient(&global_backbuffer, x_offset, y_offset);
+        box.x += gamepad.dpad_x.state;
+        box.y += gamepad.dpad_y.state;
+
+        render(&global_backbuffer);
         macos_buffer_display(&global_backbuffer, window);
 
         NSEvent *event;
@@ -281,6 +294,36 @@ void render_weird_gradient(const Buffer *buffer, int x_offset, int y_offset)
     }
 }
 
+void render_box(const RectInt *box, const Buffer *buffer, int x_offset,
+                int y_offset)
+{
+
+    int size = box->width;
+
+    u8 *row = buffer->buffer;
+    for (int y = 0; y < buffer->height; y += 1)
+    {
+        u32 *pixel = (u32 *)row;
+        for (int x = 0; x < buffer->width; x += 1)
+        {
+            u8 r = 0;
+            u8 g = 0;
+            u8 b = 0;
+            u8 a = 255;
+
+            if (x >= box->x - size && x <= box->x + size &&
+                y >= box->y - size && y <= box->y + size)
+            {
+                r = 255;
+            }
+
+            *pixel = (r | g << 8 | b << 16 | a << 24);
+            pixel += 1;
+        }
+        row += buffer->pitch;
+    }
+}
+
 internal CFDictionaryRef macos_device_matching_dictionary(u32 usagePage,
                                                           u32 usage)
 {
@@ -330,42 +373,82 @@ internal void macos_device_input_callback(void *context, IOReturn result,
     IOHIDElementRef element = IOHIDValueGetElement(value);
     u32 usagePage           = IOHIDElementGetUsagePage(element);
     u32 usage               = IOHIDElementGetUsage(element);
-    u32 state               = (u32)IOHIDValueGetIntegerValue(value);
+    s32 state               = (s32)IOHIDValueGetIntegerValue(value);
 
-    if (usagePage == 0x01 &&
-        (usage >= 0x30 && usage <= 0x35)) // ignoring axis usages
+    if (!(usagePage == 0x01 && (usage >= 0x30 && usage <= 0x35)))
     {
-        return;
+        // ignoring output when Dualshock 4 is connected
+        printf("Usage page: %x, usage: %x, state: %d\n ", usagePage, usage,
+               state);
     }
 
-    printf("Usage page: %x, usage: %x, state: %d\n ", usagePage, usage, state);
+    struct Gamepad *gamepad = (struct Gamepad *)context;
 
-    GamepadInput *gamepad = (GamepadInput *)context;
-
-    if (usagePage == 0x09)
+    if (usagePage == HID_Page_Button)
     {
-        if (usage == gamepad->face_bottom.id)
+        if (usage == gamepad->face_bottom.usage_id)
         {
             gamepad->face_bottom.state = state;
         }
-        else if (usage == gamepad->face_top.id)
+        else if (usage == gamepad->face_top.usage_id)
         {
             gamepad->face_top.state = state;
         }
-        else if (usage == gamepad->face_right.id)
+        else if (usage == gamepad->face_right.usage_id)
         {
             gamepad->face_right.state = state;
         }
-        else if (usage == gamepad->face_left.id)
+        else if (usage == gamepad->face_left.usage_id)
         {
             gamepad->face_left.state = state;
         }
     }
-    else if (usagePage == 0x01)
+    else if (usagePage == HID_Page_GenericDesktop)
     {
-        if (usage == gamepad->joystick_right.id)
+        // s64 analog =
+        //     IOHIDValueGetScaledValue(value, kIOHIDValueScaleTypeCalibrated);
+        // printf("analog, %ld\n", analog);
+        if (usage == kHIDUsage_GD_Hatswitch)
         {
-            gamepad->joystick_right.state = state;
+            switch (state)
+            {
+            case HatSwitch_Top:
+                gamepad->dpad_x.state = 0;
+                gamepad->dpad_y.state = -1;
+                break;
+            case HatSwitch_TopRight:
+                gamepad->dpad_x.state = 1;
+                gamepad->dpad_y.state = -1;
+                break;
+            case HatSwitch_Right:
+                gamepad->dpad_x.state = 1;
+                gamepad->dpad_y.state = 0;
+                break;
+            case HatSwitch_BottomRight:
+                gamepad->dpad_x.state = 1;
+                gamepad->dpad_y.state = 1;
+                break;
+            case HatSwitch_Bottom:
+                gamepad->dpad_x.state = 0;
+                gamepad->dpad_y.state = 1;
+                break;
+            case HatSwitch_BottomLeft:
+                gamepad->dpad_x.state = -1;
+                gamepad->dpad_y.state = 1;
+                break;
+            case HatSwitch_Left:
+                gamepad->dpad_x.state = -1;
+                gamepad->dpad_y.state = 0;
+                break;
+            case HatSwitch_TopLeft:
+                gamepad->dpad_x.state = -1;
+                gamepad->dpad_y.state = -1;
+                break;
+            default:
+                gamepad->dpad_x.state = 0;
+                gamepad->dpad_y.state = 0;
+                break;
+            }
         }
     }
 }
@@ -393,8 +476,6 @@ internal void macos_device_callback(void *context, IOReturn result,
 
     s32 vendorID  = 0;
     s32 productID = 0;
-    CFArrayRef device_usage_paris =
-        get_array_property(device, CFSTR(kIOHIDDeviceUsagePairsKey));
 
     {
         CFTypeRef ref =
@@ -422,32 +503,29 @@ internal void macos_device_callback(void *context, IOReturn result,
         }
     }
 
+    struct Gamepad *gamepad = (struct Gamepad *)context;
+
     if (vendorID == 0x054C && productID == 0x09CC)
     {
         printf("Sony Dualshock 4 detected\n");
-        GamepadInput *gamepad   = (GamepadInput *)context;
-        gamepad->face_left.id   = 0x01;
-        gamepad->face_bottom.id = 0x02;
-        gamepad->face_right.id  = 0x03;
-        gamepad->face_top.id    = 0x04;
-        gamepad->dpad_up.id     = 0x90;
-        gamepad->dpad_down.id   = 0x91;
-        gamepad->dpad_right.id  = 0x92;
-        gamepad->dpad_left.id   = 0x93;
+        gamepad->face_left.usage_id   = 0x01;
+        gamepad->face_bottom.usage_id = 0x02;
+        gamepad->face_right.usage_id  = 0x03;
+        gamepad->face_top.usage_id    = 0x04;
+        gamepad->dpad_x.usage_id      = 0x39;
+        gamepad->dpad_y.usage_id      = 0x39;
     }
-    else if (vendorID == 0x57e && productID == 0x2007)
+    else if (vendorID == 0x57e && (productID == 0x2006 || productID == 0x2007))
     {
-        printf("Nintendo Joy-Con R detected\n");
-        GamepadInput *gamepad      = (GamepadInput *)context;
-        gamepad->face_left.id      = 0x03;
-        gamepad->face_bottom.id    = 0x01;
-        gamepad->face_right.id     = 0x02;
-        gamepad->face_top.id       = 0x04;
-        gamepad->dpad_up.id        = 0x90;
-        gamepad->dpad_down.id      = 0x91;
-        gamepad->dpad_right.id     = 0x92;
-        gamepad->dpad_left.id      = 0x93;
-        gamepad->joystick_right.id = 0x39;
+        printf("Nintendo Joy-Con (%c) detected\n",
+               productID == 0x2006 ? 'L' : 'R');
+
+        gamepad->face_bottom.usage_id = 0x01;
+        gamepad->face_right.usage_id  = 0x02;
+        gamepad->face_left.usage_id   = 0x03;
+        gamepad->face_top.usage_id    = 0x04;
+        gamepad->dpad_x.usage_id      = 0x39;
+        gamepad->dpad_y.usage_id      = 0x39;
     }
     else
     {
@@ -465,7 +543,7 @@ internal void macos_device_callback(void *context, IOReturn result,
                                           context);
 }
 
-internal void macos_init_gamepad(MacosGamepad *gamepad)
+internal void macos_init_gamepad(Gamepad *gamepad)
 {
     IOHIDManagerRef manager =
         IOHIDManagerCreate(kCFAllocatorDefault, kIOHIDOptionsTypeNone);
