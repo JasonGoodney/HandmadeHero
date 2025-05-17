@@ -1,8 +1,12 @@
-#include "macos.h"
-
 #include <AppKit/AppKit.h>
 #include <AppKit/NSEvent.h>
 #include <Carbon/Carbon.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <IOKit/hid/IOHIDLib.h>
+#include <IOKit/hid/IOHIDUsageTables.h>
+#include <cstddef>
+
+#include "../core.h"
 
 global const u16 RENDER_WIDTH   = 64 * 12;
 global const u16 RENDER_HEIGHT  = 64 * 8;
@@ -14,6 +18,18 @@ global int x_offset = 0;
 global int y_offset = 0;
 global struct Rectangle box;
 
+internal CGRect macos_get_window_rect(const NSWindow *window);
+internal void macos_buffer_resize(struct BackBuffer *buffer, int width,
+                                  int height);
+internal void macos_buffer_display(struct BackBuffer *buffer,
+                                   const NSWindow *window);
+internal void macos_register_device(void *context);
+internal void macos_device_input_callback(void *context, IOReturn result,
+                                          void *sender, IOHIDValueRef value);
+internal void macos_device_callback(void *context, IOReturn result,
+                                    void *sender, IOHIDDeviceRef device);
+internal CFDictionaryRef macos_device_matching_dictionary(u32 usagePage,
+                                                          u32 usage);
 void render_weird_gradient(const BackBuffer *buffer, int x_offset,
                            int y_offset);
 void render_box(const struct Rectangle *box, const BackBuffer *buffer,
@@ -37,15 +53,16 @@ void render(const BackBuffer *buffer)
 
 - (void)windowDidResize:(NSNotification *)notification
 {
-    NSWindow *window      = (NSWindow *)notification.object;
-    struct Rectangle rect = macos_get_window_rect(window);
-    macos_buffer_resize(&global_backbuffer, rect.width, rect.height);
+    NSWindow *window = (NSWindow *)notification.object;
+    CGRect rect      = macos_get_window_rect(window);
+    macos_buffer_resize(&global_backbuffer, rect.size.width, rect.size.height);
     // render_weird_gradient(&global_backbuffer, x_offset, y_offset);
     render(&global_backbuffer);
     macos_buffer_display(&global_backbuffer, window);
 
-    NSString *title = [NSString
-        stringWithFormat:@"Handmade Here (%dx%d)", rect.width, rect.height];
+    NSString *title =
+        [NSString stringWithFormat:@"Handmade Here (%x%d)",
+                                   (int)rect.size.width, (int)rect.size.height];
     [window setTitle:title];
 }
 @end
@@ -58,21 +75,23 @@ int main(int argc, const char *argv[])
 
     NSRect screenRect = [[NSScreen mainScreen] frame];
 
-    NSRect windowRect =
+    NSRect contentRect =
         NSMakeRect((screenRect.size.width - RENDER_WIDTH) * 0.5,
                    (screenRect.size.height - RENDER_HEIGHT) * 0.5, RENDER_WIDTH,
                    RENDER_HEIGHT);
 
+    NSWindowStyleMask styleMask =
+        NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
+        NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable;
+
     NSWindow *window =
-        [[NSWindow alloc] initWithContentRect:windowRect
-                                    styleMask:NSWindowStyleMaskTitled |
-                                              NSWindowStyleMaskClosable |
-                                              NSWindowStyleMaskMiniaturizable |
-                                              NSWindowStyleMaskResizable
+        [[NSWindow alloc] initWithContentRect:contentRect
+                                    styleMask:styleMask
                                       backing:NSBackingStoreBuffered
                                         defer:NO];
+
     [window setBackgroundColor:NSColor.blackColor];
-    // [window makeKeyAndOrderFront:window];
+    [window makeKeyAndOrderFront:NULL];
     [window orderFrontRegardless];
     [window setAcceptsMouseMovedEvents:true];
 
@@ -82,27 +101,22 @@ int main(int argc, const char *argv[])
         [[HandmadeWindowDelegate alloc] init];
     [window setDelegate:windowDelegate];
 
-    struct Rectangle rect = macos_get_window_rect(window);
-    macos_buffer_resize(&global_backbuffer, rect.width, rect.height);
+    CGRect rect = macos_get_window_rect(window);
+    macos_buffer_resize(&global_backbuffer, rect.size.width, rect.size.height);
     NSString *title = [NSString stringWithFormat:@"Handmade Here (%dx%d)",
                                                  global_backbuffer.width,
                                                  global_backbuffer.height];
     [window setTitle:title];
 
-    bool is_mouse_in_box = false;
-    bool box_selected    = false;
-    box.width            = 50;
-    box.height           = 50;
-    box.x                = (RENDER_WIDTH / 2) - (box.width / 2);
-    box.y                = (RENDER_HEIGHT / 2) - (box.height / 2);
-    x_offset             = 0;
-    y_offset             = 0;
-    float previous_mx    = 0;
-    float previous_my    = 0;
-    RUNNING              = true;
+    box.width  = 50;
+    box.height = 50;
+    box.x      = (RENDER_WIDTH / 2) - (box.width / 2);
+    box.y      = (RENDER_HEIGHT / 2) - (box.height / 2);
+    x_offset   = 0;
+    y_offset   = 0;
+    RUNNING    = true;
     while (RUNNING)
     {
-
         if (gamepad.face_right.state)
         {
             box.x += 1;
@@ -134,49 +148,52 @@ int main(int argc, const char *argv[])
                                           inMode:NSDefaultRunLoopMode
                                          dequeue:YES];
 
-            NSEventType eventType = [event type];
-            switch (eventType)
+            switch ([event type])
             {
-
-            case NSEventTypeLeftMouseDown:
-                box_selected = !box_selected;
-                if (box_selected)
+            case NSEventTypeKeyDown:
+                printf("key down hex %x\n", event.keyCode);
+                if (event.keyCode == 0x35) // Escape
                 {
-                    box.x -= 7;
-                    box.y -= 7;
-                    box.width    = 64;
-                    box.height   = 64;
-                    box_selected = true;
+                    RUNNING = false;
                 }
-                else
+
+                if (event.keyCode == 0x02) // WASD
                 {
-                    box.x += 7;
-                    box.y += 7;
-                    box.width  = 50;
-                    box.height = 50;
+                    gamepad.face_right.state = true;
+                }
+                else if (event.keyCode == 0x0d)
+                {
+                    gamepad.face_top.state = true;
+                }
+                else if (event.keyCode == 0x00)
+                {
+                    gamepad.face_left.state = true;
+                }
+                else if (event.keyCode == 0x01)
+                {
+                    gamepad.face_bottom.state = true;
                 }
 
                 break;
-            case NSEventTypeMouseMoved:
-            {
-                float mx = event.locationInWindow.x;
-                float my = event.locationInWindow.y;
-                is_mouse_in_box =
-                    (((int)mx >= box.x && (int)mx <= box.x + box.width) &&
-                     ((int)my >= box.y && (int)my <= box.y + box.height));
-
-                if (box_selected)
+            case NSEventTypeKeyUp:
+                if (event.keyCode == 0x02)
                 {
-                    box.x += (mx - previous_mx);
-                    box.y -= (my - previous_my);
+                    gamepad.face_right.state = false;
+                }
+                else if (event.keyCode == 0x0d)
+                {
+                    gamepad.face_top.state = false;
+                }
+                else if (event.keyCode == 0x00)
+                {
+                    gamepad.face_left.state = false;
+                }
+                else if (event.keyCode == 0x01)
+                {
+                    gamepad.face_bottom.state = false;
                 }
 
-                previous_mx = mx;
-                previous_my = my;
-            }
-                [NSApp sendEvent:event];
                 break;
-
             default:
                 [NSApp sendEvent:event];
             }
@@ -188,12 +205,9 @@ int main(int argc, const char *argv[])
     return 0;
 }
 
-struct Rectangle macos_get_window_rect(const NSWindow *window)
+internal CGRect macos_get_window_rect(const NSWindow *window)
 {
-    struct Rectangle rect;
-    rect.width  = window.contentView.bounds.size.width;
-    rect.height = window.contentView.bounds.size.height;
-    return rect;
+    return window.contentView.bounds;
 }
 
 internal void macos_buffer_display(BackBuffer *buffer, const NSWindow *window)
@@ -345,7 +359,7 @@ internal void macos_device_input_callback(void *context, IOReturn result,
 
     struct Gamepad *gamepad = (struct Gamepad *)context;
 
-    if (usagePage == HID_Page_Button)
+    if (usagePage == kHIDPage_Button)
     {
         if (usage == gamepad->face_bottom.usage_id)
         {
@@ -364,51 +378,57 @@ internal void macos_device_input_callback(void *context, IOReturn result,
             gamepad->face_left.state = state;
         }
     }
-    else if (usagePage == HID_Page_GenericDesktop)
+    else if (usagePage == kHIDPage_GenericDesktop)
     {
         // s64 analog =
         //     IOHIDValueGetScaledValue(value, kIOHIDValueScaleTypeCalibrated);
         // printf("analog, %ld\n", analog);
         if (usage == kHIDUsage_GD_Hatswitch)
         {
-            switch (state)
+            if (state == 0)
             {
-            case HatSwitch_Top:
                 gamepad->dpad_x.state = 0;
                 gamepad->dpad_y.state = -1;
-                break;
-            case HatSwitch_TopRight:
+            }
+            else if (state == 1)
+            {
                 gamepad->dpad_x.state = 1;
                 gamepad->dpad_y.state = -1;
-                break;
-            case HatSwitch_Right:
+            }
+            else if (state == 2)
+            {
                 gamepad->dpad_x.state = 1;
                 gamepad->dpad_y.state = 0;
-                break;
-            case HatSwitch_BottomRight:
+            }
+            else if (state == 3)
+            {
                 gamepad->dpad_x.state = 1;
                 gamepad->dpad_y.state = 1;
-                break;
-            case HatSwitch_Bottom:
+            }
+            else if (state == 4)
+            {
                 gamepad->dpad_x.state = 0;
                 gamepad->dpad_y.state = 1;
-                break;
-            case HatSwitch_BottomLeft:
+            }
+            else if (state == 5)
+            {
                 gamepad->dpad_x.state = -1;
                 gamepad->dpad_y.state = 1;
-                break;
-            case HatSwitch_Left:
+            }
+            else if (state == 6)
+            {
                 gamepad->dpad_x.state = -1;
                 gamepad->dpad_y.state = 0;
-                break;
-            case HatSwitch_TopLeft:
+            }
+            else if (state == 7)
+            {
                 gamepad->dpad_x.state = -1;
                 gamepad->dpad_y.state = -1;
-                break;
-            default:
+            }
+            else
+            {
                 gamepad->dpad_x.state = 0;
                 gamepad->dpad_y.state = 0;
-                break;
             }
         }
     }
@@ -480,12 +500,11 @@ internal void macos_device_callback(void *context, IOReturn result,
         printf("vendorID: %x, productID: %x\n", vendorID, productID);
     }
 
-    CFArrayRef matches = (__bridge CFArrayRef) @[
+    IOHIDDeviceSetInputValueMatchingMultiple(device, (__bridge CFArrayRef) @[
         @{@(kIOHIDElementUsagePageKey) : @(kHIDPage_Button)},
-        @{@(kIOHIDElementUsagePageKey) : @(kHIDPage_GenericDesktop)}
-    ];
-
-    IOHIDDeviceSetInputValueMatchingMultiple(device, matches);
+        @{@(kIOHIDElementUsagePageKey) : @(kHIDPage_GenericDesktop)},
+        @{@(kIOHIDElementUsagePageKey) : @(kHIDPage_KeyboardOrKeypad)}
+    ]);
 
     IOHIDDeviceRegisterInputValueCallback(device, macos_device_input_callback,
                                           context);
@@ -496,15 +515,24 @@ internal void macos_register_device(void *context)
     IOHIDManagerRef manager =
         IOHIDManagerCreate(kCFAllocatorDefault, kIOHIDOptionsTypeNone);
 
-    CFDictionaryRef gamepadRef = macos_device_matching_dictionary(
-        kHIDPage_GenericDesktop, kHIDUsage_GD_GamePad);
-    CFDictionaryRef multiAxisControllerRef = macos_device_matching_dictionary(
-        kHIDPage_GenericDesktop, kHIDUsage_GD_MultiAxisController);
-    CFDictionaryRef matchesList[] = {gamepadRef, multiAxisControllerRef};
-
-    CFArrayRef matches =
-        CFArrayCreate(kCFAllocatorDefault, (const void **)matchesList, 2, NULL);
-    IOHIDManagerSetDeviceMatchingMultiple(manager, matches);
+    IOHIDManagerSetDeviceMatchingMultiple(manager, (__bridge CFArrayRef) @[
+        @{
+            @kIOHIDDeviceUsagePageKey : @(kHIDPage_GenericDesktop),
+            @kIOHIDDeviceUsageKey : @(kHIDUsage_GD_Joystick)
+        },
+        @{
+            @kIOHIDDeviceUsagePageKey : @(kHIDPage_GenericDesktop),
+            @kIOHIDDeviceUsageKey : @(kHIDUsage_GD_GamePad)
+        },
+        @{
+            @kIOHIDDeviceUsagePageKey : @(kHIDPage_GenericDesktop),
+            @kIOHIDDeviceUsageKey : @(kHIDUsage_GD_MultiAxisController)
+        },
+        @{
+            @kIOHIDDeviceUsagePageKey : @(kHIDPage_GenericDesktop),
+            @kIOHIDDeviceUsageKey : @(kHIDUsage_GD_Keyboard)
+        }
+    ]);
 
     IOHIDManagerRegisterDeviceMatchingCallback(manager, macos_device_callback,
                                                context);

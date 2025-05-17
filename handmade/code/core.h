@@ -18,13 +18,6 @@ typedef int64_t s64;
 typedef float f32;
 typedef double f64;
 
-enum
-{
-    HID_Page_GenericDesktop = 0x01,
-    HID_Page_Button         = 0x09,
-    HID_Page_Haptics        = 0x0E,
-};
-
 enum HatSwitchDirection
 {
     HatSwitch_Top         = 0,
