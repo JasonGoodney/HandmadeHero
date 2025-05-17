@@ -1,6 +1,7 @@
 #include "macos.h"
 
 #include <AppKit/AppKit.h>
+#include <AppKit/NSEvent.h>
 #include <Carbon/Carbon.h>
 
 global const u16 RENDER_WIDTH   = 64 * 12;
@@ -9,9 +10,9 @@ global const u8 BYTES_PER_PIXEL = 4;
 
 global BOOL RUNNING;
 global struct BackBuffer global_backbuffer;
-global int x_offset         = 0;
-global int y_offset         = 0;
-global struct Rectangle box = {RENDER_WIDTH / 2, RENDER_HEIGHT / 2, 50, 50};
+global int x_offset = 0;
+global int y_offset = 0;
+global struct Rectangle box;
 
 void render_weird_gradient(const BackBuffer *buffer, int x_offset,
                            int y_offset);
@@ -52,6 +53,7 @@ void render(const BackBuffer *buffer)
 int main(int argc, const char *argv[])
 {
     struct Gamepad gamepad = {};
+
     macos_register_device(&gamepad);
 
     NSRect screenRect = [[NSScreen mainScreen] frame];
@@ -87,9 +89,17 @@ int main(int argc, const char *argv[])
                                                  global_backbuffer.height];
     [window setTitle:title];
 
-    x_offset = 0;
-    y_offset = 0;
-    RUNNING  = true;
+    bool is_mouse_in_box = false;
+    bool box_selected    = false;
+    box.width            = 50;
+    box.height           = 50;
+    box.x                = (RENDER_WIDTH / 2) - (box.width / 2);
+    box.y                = (RENDER_HEIGHT / 2) - (box.height / 2);
+    x_offset             = 0;
+    y_offset             = 0;
+    float previous_mx    = 0;
+    float previous_my    = 0;
+    RUNNING              = true;
     while (RUNNING)
     {
 
@@ -127,10 +137,46 @@ int main(int argc, const char *argv[])
             NSEventType eventType = [event type];
             switch (eventType)
             {
-            case NSEventTypeMouseEntered:
-            case NSEventTypeMouseExited:
-            case NSEventTypeMouseMoved:
+
             case NSEventTypeLeftMouseDown:
+                box_selected = !box_selected;
+                if (box_selected)
+                {
+                    box.x -= 7;
+                    box.y -= 7;
+                    box.width    = 64;
+                    box.height   = 64;
+                    box_selected = true;
+                }
+                else
+                {
+                    box.x += 7;
+                    box.y += 7;
+                    box.width  = 50;
+                    box.height = 50;
+                }
+
+                break;
+            case NSEventTypeMouseMoved:
+            {
+                float mx = event.locationInWindow.x;
+                float my = event.locationInWindow.y;
+                is_mouse_in_box =
+                    (((int)mx >= box.x && (int)mx <= box.x + box.width) &&
+                     ((int)my >= box.y && (int)my <= box.y + box.height));
+
+                if (box_selected)
+                {
+                    box.x += (mx - previous_mx);
+                    box.y -= (my - previous_my);
+                }
+
+                previous_mx = mx;
+                previous_my = my;
+            }
+                [NSApp sendEvent:event];
+                break;
+
             default:
                 [NSApp sendEvent:event];
             }
@@ -225,10 +271,12 @@ void render_box(const struct Rectangle *box, const BackBuffer *buffer,
             u8 b = 0;
             u8 a = 255;
 
-            if (x >= box->x - size && x <= box->x + size &&
-                y >= box->y - size && y <= box->y + size)
+            if (x >= box->x && x <= box->x + size)
             {
-                r = 255;
+                if (y >= box->y && y <= box->y + size)
+                {
+                    r = 255;
+                }
             }
 
             *pixel = (r | g << 8 | b << 16 | a << 24);
