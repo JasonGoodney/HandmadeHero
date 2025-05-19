@@ -30,8 +30,6 @@ internal void macos_device_input_callback(void *context, IOReturn result,
                                           void *sender, IOHIDValueRef value);
 internal void macos_device_callback(void *context, IOReturn result,
                                     void *sender, IOHIDDeviceRef device);
-internal CFDictionaryRef macos_device_matching_dictionary(u32 usagePage,
-                                                          u32 usage);
 void render_weird_gradient(const BackBuffer *buffer, int x_offset,
                            int y_offset);
 void render_box(const struct Rectangle *box, const BackBuffer *buffer,
@@ -155,50 +153,50 @@ int main(int argc, const char *argv[])
 
             switch ([event type])
             {
-            case NSEventTypeKeyDown:
-                printf("key down hex %x\n", event.keyCode);
-                if (event.keyCode == 0x35) // Escape
-                {
-                    RUNNING = false;
-                }
+            // case NSEventTypeKeyDown:
+            //     printf("key down hex %x\n", event.keyCode);
+            //     if (event.keyCode == 0x35) // Escape
+            //     {
+            //         RUNNING = false;
+            //     }
 
-                if (event.keyCode == 0x02) // WASD
-                {
-                    gamepad.face_right.state = true;
-                }
-                else if (event.keyCode == 0x0d)
-                {
-                    gamepad.face_top.state = true;
-                }
-                else if (event.keyCode == 0x00)
-                {
-                    gamepad.face_left.state = true;
-                }
-                else if (event.keyCode == 0x01)
-                {
-                    gamepad.face_bottom.state = true;
-                }
+            //     if (event.keyCode == 0x02) // WASD
+            //     {
+            //         gamepad.face_right.state = true;
+            //     }
+            //     else if (event.keyCode == 0x0d)
+            //     {
+            //         gamepad.face_top.state = true;
+            //     }
+            //     else if (event.keyCode == 0x00)
+            //     {
+            //         gamepad.face_left.state = true;
+            //     }
+            //     else if (event.keyCode == 0x01)
+            //     {
+            //         gamepad.face_bottom.state = true;
+            //     }
 
-                break;
-            case NSEventTypeKeyUp:
-                if (event.keyCode == 0x02)
-                {
-                    gamepad.face_right.state = false;
-                }
-                else if (event.keyCode == 0x0d)
-                {
-                    gamepad.face_top.state = false;
-                }
-                else if (event.keyCode == 0x00)
-                {
-                    gamepad.face_left.state = false;
-                }
-                else if (event.keyCode == 0x01)
-                {
-                    gamepad.face_bottom.state = false;
-                }
+            //     break;
+            // case NSEventTypeKeyUp:
+            //     if (event.keyCode == 0x02)
+            //     {
+            //         gamepad.face_right.state = false;
+            //     }
+            //     else if (event.keyCode == 0x0d)
+            //     {
+            //         gamepad.face_top.state = false;
+            //     }
+            //     else if (event.keyCode == 0x00)
+            //     {
+            //         gamepad.face_left.state = false;
+            //     }
+            //     else if (event.keyCode == 0x01)
+            //     {
+            //         gamepad.face_bottom.state = false;
+            //     }
 
-                break;
+            //     break;
             default:
                 [app sendEvent:event];
             }
@@ -303,42 +301,6 @@ void render_box(const struct Rectangle *box, const BackBuffer *buffer,
         }
         row += buffer->pitch;
     }
-}
-
-CFDictionaryRef macos_device_matching_dictionary(u32 usagePage, u32 usage)
-{
-    CFMutableDictionaryRef ref = CFDictionaryCreateMutable(
-        kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks,
-        &kCFTypeDictionaryValueCallBacks);
-
-    if (ref == NULL)
-    {
-        return NULL;
-    }
-
-    CFNumberRef usagePageRef =
-        CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &usagePage);
-    if (usagePageRef == NULL)
-    {
-        CFRelease(ref);
-        return NULL;
-    }
-
-    CFDictionarySetValue(ref, CFSTR(kIOHIDDeviceUsagePageKey), usagePageRef);
-    CFRelease(usagePageRef);
-
-    CFNumberRef usageRef =
-        CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &usage);
-    if (usageRef == NULL)
-    {
-        CFRelease(ref);
-        return NULL;
-    }
-
-    CFDictionarySetValue(ref, CFSTR(kIOHIDDeviceUsageKey), usageRef);
-    CFRelease(usageRef);
-
-    return ref;
 }
 
 internal void macos_device_input_callback(void *context, IOReturn result,
