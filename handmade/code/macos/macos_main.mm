@@ -120,23 +120,6 @@ int main(int argc, const char *argv[])
     RUNNING    = true;
     while (RUNNING)
     {
-        if (gamepad.face_right.state)
-        {
-            box.x += 1;
-        }
-        else if (gamepad.face_left.state)
-        {
-            box.x -= 1;
-        }
-        else if (gamepad.face_top.state)
-        {
-            box.y -= 1;
-        }
-        else if (gamepad.face_bottom.state)
-        {
-            box.y += 1;
-        }
-
         box.x += gamepad.dpad_x.state;
         box.y += gamepad.dpad_y.state;
 
@@ -153,50 +136,42 @@ int main(int argc, const char *argv[])
 
             switch ([event type])
             {
-            // case NSEventTypeKeyDown:
-            //     printf("key down hex %x\n", event.keyCode);
-            //     if (event.keyCode == 0x35) // Escape
-            //     {
-            //         RUNNING = false;
-            //     }
+            case NSEventTypeKeyDown:
+                printf("key down hex %x\n", event.keyCode);
+                if (event.keyCode == 0x35) // Escape
+                {
+                    RUNNING = false;
+                }
 
-            //     if (event.keyCode == 0x02) // WASD
-            //     {
-            //         gamepad.face_right.state = true;
-            //     }
-            //     else if (event.keyCode == 0x0d)
-            //     {
-            //         gamepad.face_top.state = true;
-            //     }
-            //     else if (event.keyCode == 0x00)
-            //     {
-            //         gamepad.face_left.state = true;
-            //     }
-            //     else if (event.keyCode == 0x01)
-            //     {
-            //         gamepad.face_bottom.state = true;
-            //     }
+                if (event.keyCode == 0x0d) // W
+                {
+                    gamepad.dpad_y.state = -1;
+                }
+                else if (event.keyCode == 0x00) // A
+                {
+                    gamepad.dpad_x.state = -1;
+                }
+                else if (event.keyCode == 0x01) // S
+                {
+                    gamepad.dpad_y.state = 1;
+                }
+                else if (event.keyCode == 0x02) // D
+                {
+                    gamepad.dpad_x.state = 1;
+                }
 
-            //     break;
-            // case NSEventTypeKeyUp:
-            //     if (event.keyCode == 0x02)
-            //     {
-            //         gamepad.face_right.state = false;
-            //     }
-            //     else if (event.keyCode == 0x0d)
-            //     {
-            //         gamepad.face_top.state = false;
-            //     }
-            //     else if (event.keyCode == 0x00)
-            //     {
-            //         gamepad.face_left.state = false;
-            //     }
-            //     else if (event.keyCode == 0x01)
-            //     {
-            //         gamepad.face_bottom.state = false;
-            //     }
+                break;
+            case NSEventTypeKeyUp:
+                if (event.keyCode == 0x0d || event.keyCode == 0x01)
+                {
+                    gamepad.dpad_y.state = 0;
+                }
+                else if (event.keyCode == 0x00 || event.keyCode == 0x02)
+                {
+                    gamepad.dpad_x.state = 0;
+                }
 
-            //     break;
+                break;
             default:
                 [app sendEvent:event];
             }
@@ -316,13 +291,6 @@ internal void macos_device_input_callback(void *context, IOReturn result,
     u32 usagePage           = IOHIDElementGetUsagePage(element);
     u32 usage               = IOHIDElementGetUsage(element);
     s32 state               = (s32)IOHIDValueGetIntegerValue(value);
-
-    if (!(usagePage == 0x01 && (usage >= 0x30 && usage <= 0x35)))
-    {
-        // ignoring output when Dualshock 4 is connected
-        printf("Usage page: %x, usage: %x, state: %d\n ", usagePage, usage,
-               state);
-    }
 
     struct Gamepad *gamepad = (struct Gamepad *)context;
 
