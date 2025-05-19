@@ -2,8 +2,10 @@
 #include <AppKit/NSEvent.h>
 #include <Carbon/Carbon.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <Foundation/Foundation.h>
 #include <IOKit/hid/IOHIDLib.h>
 #include <IOKit/hid/IOHIDUsageTables.h>
+#include <MacTypes.h>
 #include <cstddef>
 
 #include "../core.h"
@@ -65,10 +67,14 @@ void render(const BackBuffer *buffer)
                                    (int)rect.size.width, (int)rect.size.height];
     [window setTitle:title];
 }
-@end
+@end // HandmadeWindowDelegate
 
 int main(int argc, const char *argv[])
 {
+    NSApplication *app = [NSApplication sharedApplication];
+    [app setActivationPolicy:NSApplicationActivationPolicyRegular];
+    [app activateIgnoringOtherApps:YES];
+
     struct Gamepad gamepad = {};
 
     macos_register_device(&gamepad);
@@ -92,7 +98,6 @@ int main(int argc, const char *argv[])
 
     [window setBackgroundColor:NSColor.blackColor];
     [window makeKeyAndOrderFront:NULL];
-    [window orderFrontRegardless];
     [window setAcceptsMouseMovedEvents:true];
 
     window.contentView.wantsLayer = YES;
@@ -143,10 +148,10 @@ int main(int argc, const char *argv[])
         NSEvent *event;
         do
         {
-            event = [NSApp nextEventMatchingMask:NSEventMaskAny
-                                       untilDate:nil
-                                          inMode:NSDefaultRunLoopMode
-                                         dequeue:YES];
+            event = [app nextEventMatchingMask:NSEventMaskAny
+                                     untilDate:nil
+                                        inMode:NSDefaultRunLoopMode
+                                       dequeue:YES];
 
             switch ([event type])
             {
@@ -195,7 +200,7 @@ int main(int argc, const char *argv[])
 
                 break;
             default:
-                [NSApp sendEvent:event];
+                [app sendEvent:event];
             }
         } while (event != nil);
     }
