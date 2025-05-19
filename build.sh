@@ -27,7 +27,7 @@ done
 if [ "${CLEAN}" ]; then
     echo "Removing /build"
     rm -rf ./build
-    if [ ! ${RUN} ] && [ ! ${DEBUG} ]; then
+    if [ ! "${RUN}" ] && [ ! "${DEBUG}" ]; then
         exit 1
     fi
 fi
@@ -40,7 +40,7 @@ $CXX $CXX_FLAGS $OSX_LD_FLAGS -o $EXECUTABLE ../../../handmade/code/macos/macos_
 popd
 
 # Debug / Run
-if [ -n ${DEBUG} ]; then
+if [ -n "${DEBUG}" ]; then
     if [ "${DEBUG}" == "xcode" ]; then
         open -a Xcode ./debug/macos_debug/macos_debug.xcodeproj
         exit 1
