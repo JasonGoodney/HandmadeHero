@@ -36,7 +36,7 @@ fi
 echo "Building Handmade Hero"
 mkdir -p ./build/bin/macos
 pushd ./build/bin/macos
-$CXX $CXX_FLAGS $OSX_LD_FLAGS -o $EXECUTABLE ../../../handmade/code/macos/macos_main.mm
+$CXX $CXX_FLAGS $OSX_LD_FLAGS -o $EXECUTABLE ../../../src/macos/macos_main.mm
 popd
 
 # Debug / Run
