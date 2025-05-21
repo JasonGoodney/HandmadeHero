@@ -1,18 +1,8 @@
 #include <AppKit/AppKit.h>
-#include <AppKit/NSEvent.h>
 #include <AudioToolbox/AudioToolbox.h>
 #include <Carbon/Carbon.h>
-#include <CoreAudioTypes/CoreAudioBaseTypes.h>
 #include <CoreFoundation/CoreFoundation.h>
-#include <Foundation/Foundation.h>
 #include <IOKit/hid/IOHIDLib.h>
-#include <IOKit/hid/IOHIDUsageTables.h>
-#include <MacTypes.h>
-#include <cassert>
-#include <cmath>
-#include <cstddef>
-#include <cstdint>
-#include <objc/objc.h>
 
 #include "../core.h"
 
@@ -29,7 +19,7 @@ global struct Rectangle box = {
     .y      = (RENDER_HEIGHT / 2) - (50 / 2),
 };
 
-global double sample_rate_khz = 44100;
+global double sample_rate_khz = 48000;
 global AudioComponentInstance audio_unit;
 
 internal void macos_audio_create(AudioComponentInstance *audio_unit);
@@ -48,10 +38,10 @@ internal void macos_device_input_callback(void *context, IOReturn result,
                                           void *sender, IOHIDValueRef value);
 internal void macos_device_callback(void *context, IOReturn result,
                                     void *sender, IOHIDDeviceRef device);
-void render_weird_gradient(const BackBuffer *buffer, int x_offset,
+void render_weird_gradient(const struct BackBuffer *buffer, int x_offset,
                            int y_offset);
-void render_box(const struct Rectangle *box, const BackBuffer *buffer);
-void render(const BackBuffer *buffer)
+void render_box(const struct Rectangle *box, const struct BackBuffer *buffer);
+void render(const struct BackBuffer *buffer)
 {
     // render_weird_gradient(buffer, x_offset, y_offset);
     render_box(&box, buffer);
@@ -199,7 +189,7 @@ internal CGRect macos_get_window_rect(const NSWindow *window)
     return window.contentView.bounds;
 }
 
-internal void macos_buffer_display(BackBuffer *buffer, const NSWindow *window)
+internal void macos_buffer_display(struct BackBuffer *buffer, const NSWindow *window)
 {
 
     @autoreleasepool
@@ -224,7 +214,7 @@ internal void macos_buffer_display(BackBuffer *buffer, const NSWindow *window)
     }
 }
 
-internal void macos_buffer_resize(BackBuffer *buffer, int width, int height)
+internal void macos_buffer_resize(struct BackBuffer *buffer, int width, int height)
 {
     if (buffer->data)
     {
@@ -238,7 +228,7 @@ internal void macos_buffer_resize(BackBuffer *buffer, int width, int height)
     buffer->data   = (u8 *)malloc(buffer->pitch * height);
 }
 
-void render_weird_gradient(const BackBuffer *buffer, int x_offset, int y_offset)
+void render_weird_gradient(const struct BackBuffer *buffer, int x_offset, int y_offset)
 {
     u8 *row = buffer->data;
     for (int y = 0; y < buffer->height; ++y)
@@ -257,7 +247,7 @@ void render_weird_gradient(const BackBuffer *buffer, int x_offset, int y_offset)
     }
 }
 
-void render_box(const struct Rectangle *box, const BackBuffer *buffer)
+void render_box(const struct Rectangle *box, const struct BackBuffer *buffer)
 {
 
     int size = box->width;

@@ -37,7 +37,7 @@ fi
 echo "Building Handmade Hero"
 mkdir -p ./build/bin/macos
 pushd ./build/bin/macos
-if ! $CXX $CXX_FLAGS $OSX_LD_FLAGS -o $OUTPUT ../../../src/macos/macos_main.mm; then
+if ! $CXX $CXX_FLAGS $OSX_LD_FLAGS -o $OUTPUT ../../../src/macos/macos_main.m; then
     exit 1
 fi
 popd
