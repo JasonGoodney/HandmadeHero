@@ -1,12 +1,18 @@
 #include <AppKit/AppKit.h>
 #include <AppKit/NSEvent.h>
+#include <AudioToolbox/AudioToolbox.h>
 #include <Carbon/Carbon.h>
+#include <CoreAudioTypes/CoreAudioBaseTypes.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <Foundation/Foundation.h>
 #include <IOKit/hid/IOHIDLib.h>
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include <MacTypes.h>
+#include <cassert>
+#include <cmath>
 #include <cstddef>
+#include <cstdint>
+#include <objc/objc.h>
 
 #include "../core.h"
 
@@ -16,9 +22,21 @@ global const u8 BYTES_PER_PIXEL = 4;
 
 global BOOL RUNNING;
 global struct BackBuffer global_backbuffer;
-global int x_offset = 0;
-global int y_offset = 0;
-global struct Rectangle box;
+global struct Rectangle box = {
+    .width  = 50,
+    .height = 50,
+    .x      = (RENDER_WIDTH / 2) - (50 / 2),
+    .y      = (RENDER_HEIGHT / 2) - (50 / 2),
+};
+
+global double sample_rate_khz = 44100;
+global AudioComponentInstance audio_unit;
+
+internal void macos_audio_create(AudioComponentInstance *audio_unit);
+internal int macos_audio_render_callback(
+    void *int_ref_con, AudioUnitRenderActionFlags *io_action_flags,
+    const struct AudioTimeStamp *in_timestamp, unsigned int in_bus_number,
+    unsigned int in_number_frames, struct AudioBufferList *io_data);
 
 internal CGRect macos_get_window_rect(const NSWindow *window);
 internal void macos_buffer_resize(struct BackBuffer *buffer, int width,
@@ -32,12 +50,11 @@ internal void macos_device_callback(void *context, IOReturn result,
                                     void *sender, IOHIDDeviceRef device);
 void render_weird_gradient(const BackBuffer *buffer, int x_offset,
                            int y_offset);
-void render_box(const struct Rectangle *box, const BackBuffer *buffer,
-                int x_offset, int y_offset);
+void render_box(const struct Rectangle *box, const BackBuffer *buffer);
 void render(const BackBuffer *buffer)
 {
     // render_weird_gradient(buffer, x_offset, y_offset);
-    render_box(&box, buffer, x_offset, y_offset);
+    render_box(&box, buffer);
 }
 
 @interface HandmadeWindowDelegate : NSObject <NSWindowDelegate>
@@ -74,8 +91,8 @@ int main(int argc, const char *argv[])
     [app activateIgnoringOtherApps:YES];
 
     struct Gamepad gamepad = {};
-
     macos_register_device(&gamepad);
+    macos_audio_create(&audio_unit);
 
     NSRect screenRect = [[NSScreen mainScreen] frame];
 
@@ -111,13 +128,7 @@ int main(int argc, const char *argv[])
                                                  global_backbuffer.height];
     [window setTitle:title];
 
-    box.width  = 50;
-    box.height = 50;
-    box.x      = (RENDER_WIDTH / 2) - (box.width / 2);
-    box.y      = (RENDER_HEIGHT / 2) - (box.height / 2);
-    x_offset   = 0;
-    y_offset   = 0;
-    RUNNING    = true;
+    RUNNING = true;
     while (RUNNING)
     {
         box.x += gamepad.dpad_x.state;
@@ -246,8 +257,7 @@ void render_weird_gradient(const BackBuffer *buffer, int x_offset, int y_offset)
     }
 }
 
-void render_box(const struct Rectangle *box, const BackBuffer *buffer,
-                int x_offset, int y_offset)
+void render_box(const struct Rectangle *box, const BackBuffer *buffer)
 {
 
     int size = box->width;
@@ -481,4 +491,91 @@ internal void macos_register_device(void *context)
         printf("an error occurred opening IOHIDManagerOpen\n");
         return;
     }
+}
+
+internal OSStatus macos_audio_render_callback(
+    void *int_ref_con, AudioUnitRenderActionFlags *io_action_flags,
+    const struct AudioTimeStamp *in_timestamp, unsigned int in_bus_number,
+    unsigned int in_number_frames, struct AudioBufferList *io_data)
+{
+    int channel      = 0;
+    s16 *buffer      = (s16 *)io_data->mBuffers[channel].mData;
+    u32 frequency_hz = 256;
+    u32 period       = sample_rate_khz / frequency_hz;
+    u32 half_period  = period / 2;
+    s16 volume       = 5000;
+
+    local u32 running_sample_index = 0;
+    for (uint32_t frame = 0; frame < in_number_frames; frame++)
+    {
+        if ((running_sample_index % period) > half_period)
+        {
+            *buffer = volume;
+            buffer++;
+            *buffer = volume;
+            buffer++;
+        }
+        else
+        {
+            *buffer = -volume;
+            buffer--;
+            *buffer = -volume;
+            buffer--;
+        }
+
+        running_sample_index++;
+    }
+
+    return noErr;
+}
+
+internal void macos_audio_create(AudioComponentInstance *audio_unit)
+{
+    // Configure the search parameters to find the default playback output unit
+    AudioComponentDescription output_desc;
+    output_desc.componentType         = kAudioUnitType_Output;
+    output_desc.componentSubType      = kAudioUnitSubType_DefaultOutput;
+    output_desc.componentManufacturer = kAudioUnitManufacturer_Apple;
+    output_desc.componentFlags        = 0;
+    output_desc.componentFlagsMask    = 0;
+
+    // Get the default playback output unit
+    AudioComponent output = AudioComponentFindNext(NULL, &output_desc);
+    assert(output);
+
+    // Create a new unit
+    OSErr err = AudioComponentInstanceNew(output, audio_unit);
+    assert(audio_unit);
+
+    // Set the format to 16 bit, dual channel, signed integer, linear PCM
+    AudioStreamBasicDescription stream_format;
+    stream_format.mSampleRate = sample_rate_khz;
+    stream_format.mFormatID   = kAudioFormatLinearPCM;
+    stream_format.mFormatFlags =
+        kAudioFormatFlagIsPacked | kAudioFormatFlagIsSignedInteger;
+    stream_format.mFramesPerPacket  = 1;
+    stream_format.mBytesPerFrame    = sizeof(s16) * 2;
+    stream_format.mBytesPerPacket   = sizeof(s16) * 2;
+    stream_format.mChannelsPerFrame = 2;
+    stream_format.mBitsPerChannel   = sizeof(s16) * 8;
+
+    err = AudioUnitSetProperty(*audio_unit, kAudioUnitProperty_StreamFormat,
+                               kAudioUnitScope_Input, 0, &stream_format,
+                               sizeof(AudioStreamBasicDescription));
+    assert(err == 0);
+
+    // Set out one rendering function on the unit
+    AURenderCallbackStruct input;
+    input.inputProc = macos_audio_render_callback;
+
+    err = AudioUnitSetProperty(
+        *audio_unit, kAudioUnitProperty_SetRenderCallback,
+        kAudioUnitScope_Global, 0, &input, sizeof(AURenderCallbackStruct));
+    assert(err == 0);
+
+    err = AudioUnitInitialize(*audio_unit);
+    assert(err == 0);
+
+    err = AudioOutputUnitStart(*audio_unit);
+    assert(err == 0);
 }
