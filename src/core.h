@@ -1,11 +1,13 @@
+#ifndef CORE_H
 #define CORE_H
-#ifdef CORE_H
 
 #include <stdint.h>
 
 #define internal static
 #define local static
 #define global static
+
+#define PI_F32 3.14159265359f
 
 typedef uint8_t u8;
 typedef uint16_t u16;
