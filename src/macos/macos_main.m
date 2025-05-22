@@ -58,7 +58,8 @@ int main(int argc, const char *argv[])
     macos_device_register(&gamepad);
 
     struct Macos_AudioOutput audio_output;
-    macos_audio_create(&audio_output);
+    AudioUnit audio_unit = NULL;
+    macos_audio_create(&audio_output, audio_unit);
 
     NSRect screenRect = [[NSScreen mainScreen] frame];
 
@@ -121,7 +122,7 @@ int main(int argc, const char *argv[])
                 }
                 if (event.keyCode == 0x31)
                 {
-                    macos_audio_start(audio_output.audio_unit);
+                    macos_audio_start(audio_unit);
                 }
                 else if (event.keyCode == 0x7e)
                 {
@@ -151,7 +152,7 @@ int main(int argc, const char *argv[])
             case NSEventTypeKeyUp:
                 if (event.keyCode == 0x31)
                 {
-                    macos_audio_stop(audio_output.audio_unit);
+                    macos_audio_stop(audio_unit);
                 }
                 else if (event.keyCode == 0x7d)
                 {
@@ -540,7 +541,8 @@ internal OSStatus macos_audio_render_callback(
     return noErr;
 }
 
-internal void macos_audio_create(struct Macos_AudioOutput *audio_output)
+internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
+                                 AudioUnit audio_unit)
 {
     audio_output->running_sample_index = 0;
     audio_output->channels             = 2;
@@ -569,8 +571,8 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output)
     assert(output);
 
     // Create a new unit
-    s32 status = AudioComponentInstanceNew(output, &audio_output->audio_unit);
-    assert(audio_output->audio_unit);
+    s32 status = AudioComponentInstanceNew(output, &audio_unit);
+    assert(audio_unit);
 
     // Set the format to 16 bit, dual channel, signed integer, linear PCM
     AudioStreamBasicDescription stream_format;
@@ -584,8 +586,7 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output)
     stream_format.mFormatFlags =
         kAudioFormatFlagIsPacked | kAudioFormatFlagIsSignedInteger;
 
-    status = AudioUnitSetProperty(audio_output->audio_unit,
-                                  kAudioUnitProperty_StreamFormat,
+    status = AudioUnitSetProperty(audio_unit, kAudioUnitProperty_StreamFormat,
                                   kAudioUnitScope_Input, 0, &stream_format,
                                   sizeof(AudioStreamBasicDescription));
     assert(status == 0);
@@ -596,15 +597,14 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output)
     input.inputProcRefCon = audio_output;
 
     status = AudioUnitSetProperty(
-        audio_output->audio_unit, kAudioUnitProperty_SetRenderCallback,
+        audio_unit, kAudioUnitProperty_SetRenderCallback,
         kAudioUnitScope_Global, 0, &input, sizeof(AURenderCallbackStruct));
     assert(status == 0);
 
-    status = AudioUnitInitialize(audio_output->audio_unit);
+    status = AudioUnitInitialize(audio_unit);
     assert(status == 0);
 
-    // macos_audio_start(audio_output->audio_unit);
-    AudioOutputUnitStart(audio_output->audio_unit);
+    macos_audio_start(audio_unit);
 }
 
 internal void macos_audio_start(AudioUnit audio_unit)

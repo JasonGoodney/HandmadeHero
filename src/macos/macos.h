@@ -20,7 +20,6 @@ struct Macos_AudioOutput
     s32 period;
     u32 running_sample_index;
     f32 time_sine;
-    AudioComponentInstance audio_unit;
 };
 
 struct audio_ring_buffer
@@ -32,7 +31,8 @@ struct audio_ring_buffer
 };
 
 // Audio
-internal void macos_audio_create(struct Macos_AudioOutput *audio_output);
+internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
+                                 AudioUnit audio_unit);
 internal void macos_audio_start(AudioUnit p_audio_unit);
 internal void macos_audio_stop(AudioUnit p_audio_unit);
 
