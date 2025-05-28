@@ -8,8 +8,6 @@ OSX_LD_FLAGS="-framework AppKit
               -framework IOKit
               -framework AudioToolbox"
 
-OUTPUT="handmade"
-
 # Flags
 CLEAN=''
 DEBUG=''
@@ -37,7 +35,7 @@ fi
 echo "Building Handmade Hero"
 mkdir -p ./build/bin/macos
 pushd ./build/bin/macos
-if ! $CXX $CXX_FLAGS $OSX_LD_FLAGS -o $OUTPUT ../../../src/macos/macos_main.m; then
+if ! $CXX $CXX_FLAGS $OSX_LD_FLAGS -o handmade ../../../src/macos/macos_main.m; then
     exit 1
 fi
 popd
@@ -48,10 +46,10 @@ if [ -n "${DEBUG}" ]; then
         open -a Xcode ./debug/macos_debug/macos_debug.xcodeproj
         exit 1
     elif [ "${DEBUG}" == "lldb" ]; then
-        lldb ./build/bin/macos/${OUTPUT}
+        lldb ./build/bin/macos/handmade
         exit 1
     fi
 elif [ "${RUN}" ]; then
     echo "Running Handmade Hero"
-    ./build/bin/macos/${OUTPUT}
+    ./build/bin/macos/handmade
 fi
