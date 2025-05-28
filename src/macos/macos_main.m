@@ -57,8 +57,8 @@ int main(int argc, const char *argv[])
     struct Gamepad gamepad = {};
     macos_device_register(&gamepad);
 
-    struct Macos_AudioOutput audio_output;
-    AudioUnit audio_unit = NULL;
+    struct Macos_AudioOutput audio_output = {};
+    AudioComponentInstance audio_unit     = NULL;
     macos_audio_create(&audio_output, audio_unit);
 
     NSRect screenRect = [[NSScreen mainScreen] frame];
@@ -98,82 +98,177 @@ int main(int argc, const char *argv[])
     RUNNING = true;
     while (RUNNING)
     {
+        { // Event handling
+            NSEvent *event;
+            do
+            {
+                event = [app nextEventMatchingMask:NSEventMaskAny
+                                         untilDate:nil
+                                            inMode:NSDefaultRunLoopMode
+                                           dequeue:YES];
+
+                switch ([event type])
+                {
+                case NSEventTypeKeyDown:
+                    printf("key down hex %x\n", event.keyCode);
+                    if (event.keyCode == 0x35) // Escape
+                    {
+                        RUNNING = false;
+                    }
+                    if (event.keyCode == 0x31)
+                    {
+                        // AudioOutputUnitStart(audio_output.audio_unit);
+                    }
+                    else if (event.keyCode == 0x7e)
+                    {
+                        audio_output.frequency_hz = 512;
+                        audio_output.period = audio_output.sample_rate_khz /
+                                              audio_output.frequency_hz;
+                    }
+
+                    if (event.keyCode == 0x0d) // W
+                    {
+                        gamepad.dpad_y.state = -1;
+                    }
+                    else if (event.keyCode == 0x00) // A
+                    {
+                        gamepad.dpad_x.state = -1;
+                    }
+                    else if (event.keyCode == 0x01) // S
+                    {
+                        gamepad.dpad_y.state = 1;
+                    }
+                    else if (event.keyCode == 0x02) // D
+                    {
+                        gamepad.dpad_x.state = 1;
+                    }
+
+                    break;
+                case NSEventTypeKeyUp:
+                    if (event.keyCode == 0x31)
+                    {
+                        // AudioOutputUnitStop(audio_output.audio_unit);
+                    }
+                    else if (event.keyCode == 0x7d)
+                    {
+                        audio_output.frequency_hz = 256;
+                        audio_output.period = audio_output.sample_rate_khz /
+                                              audio_output.frequency_hz;
+                    }
+                    if (event.keyCode == 0x0d || event.keyCode == 0x01)
+                    {
+                        gamepad.dpad_y.state = 0;
+                    }
+                    else if (event.keyCode == 0x00 || event.keyCode == 0x02)
+                    {
+                        gamepad.dpad_x.state = 0;
+                    }
+
+                    break;
+                default:
+                    [app sendEvent:event];
+                }
+            } while (event != nil);
+        }
+
         box.x += gamepad.dpad_x.state;
         box.y += gamepad.dpad_y.state;
 
-        macos_render(&global_backbuffer);
-        macos_buffer_display(&global_backbuffer, window);
+        { // Render
+            macos_render(&global_backbuffer);
+            macos_buffer_display(&global_backbuffer, window);
+        }
 
-        NSEvent *event;
-        do
-        {
-            event = [app nextEventMatchingMask:NSEventMaskAny
-                                     untilDate:nil
-                                        inMode:NSDefaultRunLoopMode
-                                       dequeue:YES];
+        { // Sound output
 
-            switch ([event type])
+            // write to circular buffer
+            local u32 running_sample_index = 0;
+            s32 half_period                = audio_output.period / 2;
+            s32 latency_sample_count       = audio_output.sample_rate_khz / 15;
+
+            s32 target_queue_bytes =
+                latency_sample_count * audio_output.bytes_per_sample;
+            u32 target_cursor =
+                (audio_output.play_cursor + target_queue_bytes) %
+                audio_output.buffer_size;
+
+            s32 byte_to_lock =
+                (running_sample_index * audio_output.bytes_per_sample) %
+                audio_output.buffer_size;
+            s32 bytes_to_write;
+
+            if (byte_to_lock == target_cursor)
             {
-            case NSEventTypeKeyDown:
-                printf("key down hex %x\n", event.keyCode);
-                if (event.keyCode == 0x35) // Escape
-                {
-                    RUNNING = false;
-                }
-                if (event.keyCode == 0x31)
-                {
-                    macos_audio_start(audio_unit);
-                }
-                else if (event.keyCode == 0x7e)
-                {
-                    audio_output.frequency_hz = 512;
-                    audio_output.period       = audio_output.sample_rate_khz /
-                                          audio_output.frequency_hz;
-                }
-
-                if (event.keyCode == 0x0d) // W
-                {
-                    gamepad.dpad_y.state = -1;
-                }
-                else if (event.keyCode == 0x00) // A
-                {
-                    gamepad.dpad_x.state = -1;
-                }
-                else if (event.keyCode == 0x01) // S
-                {
-                    gamepad.dpad_y.state = 1;
-                }
-                else if (event.keyCode == 0x02) // D
-                {
-                    gamepad.dpad_x.state = 1;
-                }
-
-                break;
-            case NSEventTypeKeyUp:
-                if (event.keyCode == 0x31)
-                {
-                    macos_audio_stop(audio_unit);
-                }
-                else if (event.keyCode == 0x7d)
-                {
-                    audio_output.frequency_hz = 256;
-                    audio_output.period       = audio_output.sample_rate_khz /
-                                          audio_output.frequency_hz;
-                }
-                if (event.keyCode == 0x0d || event.keyCode == 0x01)
-                {
-                    gamepad.dpad_y.state = 0;
-                }
-                else if (event.keyCode == 0x00 || event.keyCode == 0x02)
-                {
-                    gamepad.dpad_x.state = 0;
-                }
-
-                break;
-            default:
-                [app sendEvent:event];
+                bytes_to_write = audio_output.buffer_size;
             }
-        } while (event != nil);
+            else if (byte_to_lock > target_cursor)
+            {
+                // Play cursor wrapped
+                // Bytes to end of the circular buffer
+                bytes_to_write = audio_output.buffer_size - byte_to_lock;
+
+                // Bytes up to target cursor
+                bytes_to_write += target_cursor;
+            }
+            else
+            {
+                bytes_to_write = target_cursor - byte_to_lock;
+            }
+
+            void *region_1    = (u8 *)audio_output.data + byte_to_lock;
+            u32 region_1_size = bytes_to_write;
+            if (region_1_size + byte_to_lock > audio_output.buffer_size)
+            {
+                region_1_size = audio_output.buffer_size - byte_to_lock;
+            }
+
+            void *region_2    = audio_output.data;
+            u32 region_2_size = bytes_to_write - region_1_size;
+
+            u32 region_1_sample_count =
+                region_1_size / audio_output.bytes_per_sample;
+            s16 *sample_out = (s16 *)region_1;
+
+            for (int i = 0; i < region_1_sample_count; i++)
+            {
+                // s16 sample = sinf(audio_output.time_sine) *
+                // audio_output.volume;
+
+                // *sample_out = sample;
+                // sample_out++;
+                // *sample_out = sample;
+                // sample_out++;
+
+                // audio_output.time_sine +=
+                //     (2.0f * PI_F32 * 1.0f) / (f32)audio_output.period;
+                // running_sample_index++;
+
+                s16 sample  = (running_sample_index / half_period) % 2
+                                  ? audio_output.volume
+                                  : -audio_output.volume;
+                *sample_out = sample;
+                sample_out++;
+                *sample_out = sample;
+                sample_out++;
+                running_sample_index++;
+            }
+
+            u32 region_2_sample_count =
+                region_2_size / audio_output.bytes_per_sample;
+            sample_out = (s16 *)region_2;
+
+            for (int i = 0; i < region_2_sample_count; i++)
+            {
+                s16 sample  = (running_sample_index / half_period) % 2
+                                  ? audio_output.volume
+                                  : -audio_output.volume;
+                *sample_out = sample;
+                sample_out++;
+                *sample_out = sample;
+                sample_out++;
+                running_sample_index++;
+            }
+        }
     }
 
     printf("Handmade Hero finished running.\n");
@@ -489,74 +584,75 @@ internal void macos_device_register(void *context)
     }
 }
 
-// void macos_audio_update_ring_buffer(struct audio_ring_buffer *ring_buffer,
-//                                     s16 *data, size_t data_size)
-// {
-//     int region_1_size = data_size;
-//     int region_2_size = 0;
-
-//     if (ring_buffer->play_cursor + data_size > ring_buffer->size)
-//     {
-//         region_1_size = ring_buffer->size - ring_buffer->play_cursor;
-//         region_2_size = data_size - region_1_size;
-//     }
-
-//     memcpy(data, ring_buffer->data + ring_buffer->play_cursor,
-//     region_1_size); memcpy(&data[region_1_size], ring_buffer->data,
-//     region_2_size); ring_buffer->play_cursor =
-//         (ring_buffer->play_cursor + data_size) & data_size;
-// }
-
 internal OSStatus macos_audio_render_callback(
-    void *int_ref_con, AudioUnitRenderActionFlags *io_action_flags,
+    void *int_ref_con, enum AudioUnitRenderActionFlags *io_action_flags,
     const struct AudioTimeStamp *in_timestamp, unsigned int in_bus_number,
     unsigned int in_number_frames, struct AudioBufferList *io_data)
 {
-    // struct audio_ring_buffer *ring_buffer =
-    //     (struct audio_ring_buffer *)int_ref_con;
-    // s16 *data = (s16 *)io_data->mBuffers[0].mData;
-    // macos_audio_update_ring_buffer(ring_buffer, data, in_number_frames);
-
+    // Read from circular buffer
     struct Macos_AudioOutput *audio_output =
         (struct Macos_AudioOutput *)int_ref_con;
 
-    assert(audio_output);
+    u32 bytes_to_output = in_number_frames * audio_output->bytes_per_sample;
 
-    s16 *buffer = (s16 *)io_data->mBuffers[0].mData;
+    // Region 1 is the number of bytes up to the end of the buffer. If the
+    // frames to be rendered causes us to wrap, the remained goes into region 2.
+    u32 region_1_size = bytes_to_output;
+    u32 region_2_size = 0;
 
-    for (uint32_t frame = 0; frame < in_number_frames; frame++)
+    if (audio_output->play_cursor + region_1_size > audio_output->buffer_size)
     {
-        s16 sample = sinf(audio_output->time_sine) * audio_output->volume;
-
-        *buffer = sample;
-        buffer++;
-        *buffer = sample;
-        buffer++;
-
-        audio_output->time_sine +=
-            (2.0f * PI_F32 * 1.0f) / (f32)audio_output->period;
-        audio_output->running_sample_index++;
+        // When we wrap over the buffer size
+        region_1_size = audio_output->buffer_size - audio_output->play_cursor;
+        region_2_size = bytes_to_output - region_1_size;
     }
+
+    // TODO: assert region_1_size and region_2_size are valid (multiple of 4
+    // byte sample size)
+
+    u8 *data = (u8 *)io_data->mBuffers[0].mData;
+    memcpy(data, (u8 *)audio_output->data + audio_output->play_cursor,
+           region_1_size);
+    memcpy(&data[region_1_size], (u8 *)audio_output->data, region_2_size);
+
+    audio_output->play_cursor = (audio_output->play_cursor + bytes_to_output) %
+                                audio_output->buffer_size;
+
+    // s16 *buffer = (s16 *)io_data->mBuffers[0].mData;
+
+    // for (uint32_t frame = 0; frame < in_number_frames; frame++)
+    // {
+    // s16 sample = sinf(audio_output->time_sine) * audio_output->volume;
+
+    // *buffer = sample;
+    // buffer++;
+    // *buffer = sample;
+    // buffer++;
+
+    // audio_output->time_sine +=
+    //     (2.0f * PI_F32 * 1.0f) / (f32)audio_output->period;
+    // audio_output->running_sample_index++;
+    // }
 
     return noErr;
 }
 
 internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
-                                 AudioUnit audio_unit)
+                                 AudioComponentInstance audio_unit)
 {
-    audio_output->running_sample_index = 0;
-    audio_output->channels             = 2;
-    audio_output->sample_rate_khz      = 48000;
-    audio_output->volume               = 3000;
-    audio_output->frequency_hz         = 256;
-    audio_output->bits_per_sample      = sizeof(s16) * 8;
-    audio_output->bytes_per_sample     = sizeof(s16) * audio_output->channels;
+    audio_output->channels         = 2;
+    audio_output->sample_rate_khz  = 48000;
+    audio_output->volume           = 3000;
+    audio_output->frequency_hz     = 256;
+    audio_output->bytes_per_sample = sizeof(s16) * 2;
     audio_output->period =
         audio_output->sample_rate_khz / audio_output->frequency_hz;
 
-    struct audio_ring_buffer write_buffer;
-    write_buffer.size = audio_output->channels * audio_output->sample_rate_khz *
-                        audio_output->bytes_per_sample;
+    // Allocates a 2 second buffer
+    audio_output->buffer_size =
+        2 * audio_output->sample_rate_khz * audio_output->bytes_per_sample;
+    audio_output->data        = malloc(audio_output->buffer_size);
+    audio_output->play_cursor = 0;
 
     // Configure the search parameters to find the default playback output unit
     AudioComponentDescription output_desc;
@@ -581,8 +677,8 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
     stream_format.mFramesPerPacket  = 1;
     stream_format.mBytesPerFrame    = audio_output->bytes_per_sample;
     stream_format.mBytesPerPacket   = audio_output->bytes_per_sample;
-    stream_format.mChannelsPerFrame = audio_output->channels;
-    stream_format.mBitsPerChannel   = audio_output->bits_per_sample;
+    stream_format.mChannelsPerFrame = audio_output->channels; 
+    stream_format.mBitsPerChannel   = sizeof(s16) * 8;
     stream_format.mFormatFlags =
         kAudioFormatFlagIsPacked | kAudioFormatFlagIsSignedInteger;
 
@@ -593,7 +689,7 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
 
     // Set out one rendering function on the unit
     AURenderCallbackStruct input;
-    input.inputProc       = macos_audio_render_callback;
+    input.inputProc = macos_audio_render_callback;
     input.inputProcRefCon = audio_output;
 
     status = AudioUnitSetProperty(
@@ -604,26 +700,6 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
     status = AudioUnitInitialize(audio_unit);
     assert(status == 0);
 
-    macos_audio_start(audio_unit);
-}
-
-internal void macos_audio_start(AudioUnit audio_unit)
-{
-    if (audio_unit == NULL)
-    {
-        return;
-    }
-
-    s32 status = AudioOutputUnitStart(audio_unit);
-    assert(status == 0);
-}
-internal void macos_audio_stop(AudioUnit audio_unit)
-{
-    if (audio_unit == NULL)
-    {
-        return;
-    }
-
-    s32 status = AudioOutputUnitStop(audio_unit);
+    status = AudioOutputUnitStart(audio_unit);
     assert(status == 0);
 }

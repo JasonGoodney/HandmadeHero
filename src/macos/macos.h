@@ -9,32 +9,31 @@
 #include <IOKit/hid/IOHIDBase.h>
 #include <limits.h>
 
+struct audio_ring_buffer
+{
+    size_t size;
+    s32 play_cursor;
+    s32 write_cursor;
+    void *data;
+};
+
 struct Macos_AudioOutput
 {
     s16 channels;
-    s16 bits_per_sample;
     s16 bytes_per_sample;
     s32 sample_rate_khz;
     s32 volume;
     s32 frequency_hz;
     s32 period;
-    u32 running_sample_index;
     f32 time_sine;
-};
-
-struct audio_ring_buffer
-{
-    size_t size;
-    s32 write_cursor;
     s32 play_cursor;
+    size_t buffer_size;
     void *data;
 };
 
 // Audio
 internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
-                                 AudioUnit audio_unit);
-internal void macos_audio_start(AudioUnit p_audio_unit);
-internal void macos_audio_stop(AudioUnit p_audio_unit);
+                                 AudioComponentInstance audio_unit);
 
 // Device
 internal void macos_device_register(void *context);
