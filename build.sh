@@ -11,13 +11,14 @@ OSX_LD_FLAGS="-framework AppKit
 # Flags
 CLEAN=''
 DEBUG=''
+GUI_DEBUG=''
 RUN=''
 
-while getopts 'cd:r' flag; do
+while getopts 'cdgr' flag; do
     case "${flag}" in
     c) CLEAN='true' ;;
-    d) DEBUG="${OPTARG}" ;;
-    \?) exit 1 ;;
+    d) DEBUG='true' ;;
+    g) GUI_DEBUG='true' ;;
     r) RUN='true' ;;
     esac
 done
@@ -41,15 +42,26 @@ fi
 popd
 
 # Debug / Run
-if [ -n "${DEBUG}" ]; then
-    if [ "${DEBUG}" == "xcode" ]; then
-        open -a Xcode ./debug/macos_debug/macos_debug.xcodeproj
-        exit 1
-    elif [ "${DEBUG}" == "lldb" ]; then
+if [ "${DEBUG}" ]; then
+    if [ "${CXX}" == "clang" ]; then
         lldb ./build/bin/macos/handmade
         exit 1
+    elif [ "${CXX}" == "gcc" ]; then
+        if [ "$(uname)" == "Darwin" ] && [ "$(uname -p)" == "arm" ]; then
+            echo gdb not supported on $(sysctl -n machdep.cpu.brand_string)
+            exit 1
+        fi
+        gdb ./build/bin/macos/handmade
+        exit 1
     fi
-elif [ "${RUN}" ]; then
+fi
+
+if [ "${GUI_DEBUG}" ]; then
+    open -a Xcode ./debug/macos_debug/macos_debug.xcodeproj
+    exit 1
+fi
+
+if [ "${RUN}" ]; then
     echo "Running Handmade Hero"
     ./build/bin/macos/handmade
 fi
