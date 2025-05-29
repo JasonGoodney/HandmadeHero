@@ -27,6 +27,7 @@ struct Macos_AudioOutput
     s32 period;
     f32 time_sine;
     s32 play_cursor;
+    u32 running_sample_index;
     size_t buffer_size;
     void *data;
 };
@@ -34,6 +35,8 @@ struct Macos_AudioOutput
 // Audio
 internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
                                  AudioComponentInstance audio_unit);
+internal void macos_audio_fill_buffer(struct Macos_AudioOutput *audio_output,
+                                      s32 byte_to_lock, s32 bytes_to_write);
 
 // Device
 internal void macos_device_register(void *context);

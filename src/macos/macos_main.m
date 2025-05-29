@@ -182,9 +182,7 @@ int main(int argc, const char *argv[])
         { // Sound output
 
             // write to circular buffer
-            local u32 running_sample_index = 0;
-            s32 half_period                = audio_output.period / 2;
-            s32 latency_sample_count       = audio_output.sample_rate_khz / 15;
+            s32 latency_sample_count = audio_output.sample_rate_khz / 15;
 
             s32 target_queue_bytes =
                 latency_sample_count * audio_output.bytes_per_sample;
@@ -192,16 +190,12 @@ int main(int argc, const char *argv[])
                 (audio_output.play_cursor + target_queue_bytes) %
                 audio_output.buffer_size;
 
-            s32 byte_to_lock =
-                (running_sample_index * audio_output.bytes_per_sample) %
-                audio_output.buffer_size;
+            s32 byte_to_lock = (audio_output.running_sample_index *
+                                audio_output.bytes_per_sample) %
+                               audio_output.buffer_size;
             s32 bytes_to_write;
 
-            if (byte_to_lock == target_cursor)
-            {
-                bytes_to_write = audio_output.buffer_size;
-            }
-            else if (byte_to_lock > target_cursor)
+            if (byte_to_lock > target_cursor)
             {
                 // Play cursor wrapped
                 // Bytes to end of the circular buffer
@@ -215,59 +209,8 @@ int main(int argc, const char *argv[])
                 bytes_to_write = target_cursor - byte_to_lock;
             }
 
-            void *region_1    = (u8 *)audio_output.data + byte_to_lock;
-            u32 region_1_size = bytes_to_write;
-            if (region_1_size + byte_to_lock > audio_output.buffer_size)
-            {
-                region_1_size = audio_output.buffer_size - byte_to_lock;
-            }
-
-            void *region_2    = audio_output.data;
-            u32 region_2_size = bytes_to_write - region_1_size;
-
-            u32 region_1_sample_count =
-                region_1_size / audio_output.bytes_per_sample;
-            s16 *sample_out = (s16 *)region_1;
-
-            for (int i = 0; i < region_1_sample_count; i++)
-            {
-                // s16 sample = sinf(audio_output.time_sine) *
-                // audio_output.volume;
-
-                // *sample_out = sample;
-                // sample_out++;
-                // *sample_out = sample;
-                // sample_out++;
-
-                // audio_output.time_sine +=
-                //     (2.0f * PI_F32 * 1.0f) / (f32)audio_output.period;
-                // running_sample_index++;
-
-                s16 sample  = (running_sample_index / half_period) % 2
-                                  ? audio_output.volume
-                                  : -audio_output.volume;
-                *sample_out = sample;
-                sample_out++;
-                *sample_out = sample;
-                sample_out++;
-                running_sample_index++;
-            }
-
-            u32 region_2_sample_count =
-                region_2_size / audio_output.bytes_per_sample;
-            sample_out = (s16 *)region_2;
-
-            for (int i = 0; i < region_2_sample_count; i++)
-            {
-                s16 sample  = (running_sample_index / half_period) % 2
-                                  ? audio_output.volume
-                                  : -audio_output.volume;
-                *sample_out = sample;
-                sample_out++;
-                *sample_out = sample;
-                sample_out++;
-                running_sample_index++;
-            }
+            macos_audio_fill_buffer(&audio_output, byte_to_lock,
+                                    bytes_to_write);
         }
     }
 
@@ -618,22 +561,6 @@ internal OSStatus macos_audio_render_callback(
     audio_output->play_cursor = (audio_output->play_cursor + bytes_to_output) %
                                 audio_output->buffer_size;
 
-    // s16 *buffer = (s16 *)io_data->mBuffers[0].mData;
-
-    // for (uint32_t frame = 0; frame < in_number_frames; frame++)
-    // {
-    // s16 sample = sinf(audio_output->time_sine) * audio_output->volume;
-
-    // *buffer = sample;
-    // buffer++;
-    // *buffer = sample;
-    // buffer++;
-
-    // audio_output->time_sine +=
-    //     (2.0f * PI_F32 * 1.0f) / (f32)audio_output->period;
-    // audio_output->running_sample_index++;
-    // }
-
     return noErr;
 }
 
@@ -647,6 +574,7 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
     audio_output->bytes_per_sample = sizeof(s16) * 2;
     audio_output->period =
         audio_output->sample_rate_khz / audio_output->frequency_hz;
+    audio_output->running_sample_index = 0;
 
     // Allocates a 2 second buffer
     audio_output->buffer_size =
@@ -677,7 +605,7 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
     stream_format.mFramesPerPacket  = 1;
     stream_format.mBytesPerFrame    = audio_output->bytes_per_sample;
     stream_format.mBytesPerPacket   = audio_output->bytes_per_sample;
-    stream_format.mChannelsPerFrame = audio_output->channels; 
+    stream_format.mChannelsPerFrame = audio_output->channels;
     stream_format.mBitsPerChannel   = sizeof(s16) * 8;
     stream_format.mFormatFlags =
         kAudioFormatFlagIsPacked | kAudioFormatFlagIsSignedInteger;
@@ -689,7 +617,7 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
 
     // Set out one rendering function on the unit
     AURenderCallbackStruct input;
-    input.inputProc = macos_audio_render_callback;
+    input.inputProc       = macos_audio_render_callback;
     input.inputProcRefCon = audio_output;
 
     status = AudioUnitSetProperty(
@@ -702,4 +630,52 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
 
     status = AudioOutputUnitStart(audio_unit);
     assert(status == 0);
+}
+
+internal void macos_audio_fill_buffer(struct Macos_AudioOutput *audio_output,
+                                      s32 byte_to_lock, s32 bytes_to_write)
+{
+    void *region_1    = (u8 *)audio_output->data + byte_to_lock;
+    u32 region_1_size = bytes_to_write;
+    if (region_1_size + byte_to_lock > audio_output->buffer_size)
+    {
+        region_1_size = audio_output->buffer_size - byte_to_lock;
+    }
+
+    void *region_2    = audio_output->data;
+    u32 region_2_size = bytes_to_write - region_1_size;
+
+    u32 region_1_sample_count = region_1_size / audio_output->bytes_per_sample;
+    s16 *sample_out           = (s16 *)region_1;
+
+    for (int i = 0; i < region_1_sample_count; i++)
+    {
+        s16 sample = sinf(audio_output->time_sine) * audio_output->volume;
+
+        *sample_out = sample;
+        sample_out++;
+        *sample_out = sample;
+        sample_out++;
+
+        audio_output->time_sine +=
+            (2.0f * PI_F32 * 1.0f) / (f32)audio_output->period;
+        audio_output->running_sample_index++;
+    }
+
+    u32 region_2_sample_count = region_2_size / audio_output->bytes_per_sample;
+    sample_out                = (s16 *)region_2;
+
+    for (int i = 0; i < region_2_sample_count; i++)
+    {
+        s16 sample = sinf(audio_output->time_sine) * audio_output->volume;
+
+        *sample_out = sample;
+        sample_out++;
+        *sample_out = sample;
+        sample_out++;
+
+        audio_output->time_sine +=
+            (2.0f * PI_F32 * 1.0f) / (f32)audio_output->period;
+        audio_output->running_sample_index++;
+    }
 }
