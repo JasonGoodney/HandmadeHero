@@ -121,7 +121,7 @@ int main(int argc, const char *argv[])
                     }
                     else if (event.keyCode == 0x7e)
                     {
-                        audio_output.frequency_hz = 512;
+                        audio_output.frequency_hz += 20;
                         audio_output.period = audio_output.sample_rate_khz /
                                               audio_output.frequency_hz;
                     }
@@ -151,7 +151,7 @@ int main(int argc, const char *argv[])
                     }
                     else if (event.keyCode == 0x7d)
                     {
-                        audio_output.frequency_hz = 256;
+                        audio_output.frequency_hz -= 20;
                         audio_output.period = audio_output.sample_rate_khz /
                                               audio_output.frequency_hz;
                     }
