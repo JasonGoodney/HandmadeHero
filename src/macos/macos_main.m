@@ -213,9 +213,7 @@ int main(int argc, const char *argv[])
 
         macos_audio_fill_buffer(&audio_output, byte_to_lock, bytes_to_write);
 
-        u64 end_clock_tick = mach_absolute_time();
-        last_clock_tick    = end_clock_tick;
-
+        u64 end_clock_tick     = mach_absolute_time();
         u64 elapsed_clock_tick = end_clock_tick - last_clock_tick;
         u64 elapsed_time_ns =
             elapsed_clock_tick * timebase_info.numer / timebase_info.denom;
@@ -223,6 +221,7 @@ int main(int argc, const char *argv[])
         f32 fps            = 1.f / elapsed_time_s;
 
         NSLog(@"frames/second %.02ffps", fps);
+        last_clock_tick = end_clock_tick;
     }
 
     printf("Handmade Hero finished running.\n");
