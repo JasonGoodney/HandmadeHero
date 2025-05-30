@@ -2,6 +2,8 @@
 #include <Carbon/Carbon.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/hid/IOHIDLib.h>
+#include <mach/mach.h>
+#include <mach/mach_time.h>
 
 #include "../core.h"
 #include "macos.h"
@@ -96,6 +98,10 @@ int main(int argc, const char *argv[])
     [window setTitle:title];
 
     RUNNING = true;
+    struct mach_timebase_info timebase_info;
+    mach_timebase_info(&timebase_info);
+    u64 last_clock_tick = mach_absolute_time();
+
     while (RUNNING)
     {
         // Event handling
@@ -178,7 +184,6 @@ int main(int argc, const char *argv[])
         macos_buffer_display(&global_backbuffer, window);
 
         // Sound output
-
         // write to circular buffer
         s32 latency_sample_count = audio_output.sample_rate_khz / 15;
 
@@ -207,6 +212,17 @@ int main(int argc, const char *argv[])
         }
 
         macos_audio_fill_buffer(&audio_output, byte_to_lock, bytes_to_write);
+
+        u64 end_clock_tick = mach_absolute_time();
+        last_clock_tick    = end_clock_tick;
+
+        u64 elapsed_clock_tick = end_clock_tick - last_clock_tick;
+        u64 elapsed_time_ns =
+            elapsed_clock_tick * timebase_info.numer / timebase_info.denom;
+        f32 elapsed_time_s = (f32)elapsed_time_ns * 1.0E-9;
+        f32 fps            = 1.f / elapsed_time_s;
+
+        NSLog(@"frames/second %.02ffps", fps);
     }
 
     printf("Handmade Hero finished running.\n");

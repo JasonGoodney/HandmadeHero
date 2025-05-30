@@ -15,6 +15,29 @@ From the series spawned the recent Handmade movement we us developers favor rein
 - Unofficial Mac Platform Layer: https://www.youtube.com/playlist?list=PLQOu9z2IsoWnvByDqg_CmihZogT5sI3uM
 - Unofficial Linux Platform Layer: https://davidgow.net/handmadepenguin/default.html
 
+### Day 010 - Calculate Frames per Second
+```
+struct mach_timebase_info timebase_info;
+mach_timebase_info(&timebase_info);
+u64 last_clock_tick = mach_absolute_time();
+
+while (RUNNING)
+{
+    ...
+
+    u64 end_clock_tick = mach_absolute_time();
+    last_clock_tick    = end_clock_tick;
+
+    u64 elapsed_clock_tick = end_clock_tick - last_clock_tick;
+    u64 elapsed_time_ns =
+        elapsed_clock_tick * timebase_info.numer / timebase_info.denom;
+    f32 elapsed_time_s = (f32)elapsed_time_ns * 1.0E-9; // seconds / frame
+    f32 fps            = 1.f / elapsed_time_s;
+
+    NSLog(@"frames/second %.02ffps", fps);
+}
+```
+
 ### Day 009 - Variable-Pitch Sine Wave Output
 ### Day 008 - Writing to the Sound Buffer
 ### Day 007 - Allocation a Sound Buffer
