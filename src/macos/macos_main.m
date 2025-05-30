@@ -5,7 +5,7 @@
 #include <mach/mach.h>
 #include <mach/mach_time.h>
 
-#include "../core.h"
+#include "../game.c"
 #include "macos.h"
 
 #include <math.h>
@@ -39,8 +39,7 @@ global struct Rectangle box = {
     NSWindow *window = (NSWindow *)notification.object;
     CGRect rect      = macos_get_window_rect(window);
     macos_buffer_resize(&global_backbuffer, rect.size.width, rect.size.height);
-    // render_weird_gradient(&global_backbuffer, x_offset, y_offset);
-    macos_render(&global_backbuffer);
+    game_update_and_render(&global_backbuffer, &box);
     macos_buffer_display(&global_backbuffer, window);
 
     NSString *title =
@@ -180,7 +179,7 @@ int main(int argc, const char *argv[])
         box.y += gamepad.dpad_y.state;
 
         // Render
-        macos_render(&global_backbuffer);
+        game_update_and_render(&global_backbuffer, &box);
         macos_buffer_display(&global_backbuffer, window);
 
         // Sound output
@@ -273,63 +272,6 @@ internal void macos_buffer_resize(struct BackBuffer *buffer, int width,
     buffer->height = height;
     buffer->pitch  = width * BYTES_PER_PIXEL;
     buffer->data   = (u8 *)malloc(buffer->pitch * height);
-}
-
-void macos_render(const struct BackBuffer *buffer)
-{
-    // render_weird_gradient(buffer, x_offset, y_offset);
-    render_box(&box, buffer);
-}
-
-void render_weird_gradient(const struct BackBuffer *buffer, int x_offset,
-                           int y_offset)
-{
-    u8 *row = buffer->data;
-    for (int y = 0; y < buffer->height; ++y)
-    {
-        u32 *pixel = (u32 *)row;
-        for (int x = 0; x < buffer->width; ++x)
-        {
-            u8 r   = 0;
-            u8 g   = (u8)(y + y_offset);
-            u8 b   = (u8)(x + x_offset);
-            u8 a   = 255;
-            *pixel = (r | g << 8 | b << 16 | a << 24);
-            pixel += 1;
-        }
-        row += buffer->pitch;
-    }
-}
-
-void render_box(const struct Rectangle *box, const struct BackBuffer *buffer)
-{
-
-    int size = box->width;
-
-    u8 *row = buffer->data;
-    for (int y = 0; y < buffer->height; y += 1)
-    {
-        u32 *pixel = (u32 *)row;
-        for (int x = 0; x < buffer->width; x += 1)
-        {
-            u8 r = 0;
-            u8 g = 0;
-            u8 b = 0;
-            u8 a = 255;
-
-            if (x >= box->x && x <= box->x + size)
-            {
-                if (y >= box->y && y <= box->y + size)
-                {
-                    r = 255;
-                }
-            }
-
-            *pixel = (r | g << 8 | b << 16 | a << 24);
-            pixel += 1;
-        }
-        row += buffer->pitch;
-    }
 }
 
 internal void macos_device_input_callback(void *context, IOReturn result,

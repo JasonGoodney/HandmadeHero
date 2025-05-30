@@ -1,21 +1,13 @@
 #ifndef PLATFORM_MACOS_H
 #define PLATFORM_MACOS_H
 
-#include "../core.h"
+#include "../game.h"
 
 #include <AppKit/NSWindow.h>
 #include <AudioToolbox/AudioToolbox.h>
 #include <IOKit/IOReturn.h>
 #include <IOKit/hid/IOHIDBase.h>
 #include <limits.h>
-
-struct audio_ring_buffer
-{
-    size_t size;
-    s32 play_cursor;
-    s32 write_cursor;
-    void *data;
-};
 
 struct Macos_AudioOutput
 {
@@ -46,10 +38,6 @@ internal void macos_device_callback(void *context, IOReturn result,
                                     void *sender, IOHIDDeviceRef device);
 
 // Render
-void render_weird_gradient(const struct BackBuffer *buffer, int x_offset,
-                           int y_offset);
-void render_box(const struct Rectangle *box, const struct BackBuffer *buffer);
-void macos_render(const struct BackBuffer *buffer);
 internal CGRect macos_get_window_rect(const NSWindow *window);
 internal void macos_buffer_resize(struct BackBuffer *buffer, int width,
                                   int height);

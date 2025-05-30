@@ -1,5 +1,5 @@
-#ifndef CORE_H
-#define CORE_H
+#ifndef GAME_H
+#define GAME_H
 
 #include <stdint.h>
 
@@ -20,25 +20,12 @@ typedef int64_t s64;
 typedef float f32;
 typedef double f64;
 
-enum HatSwitchDirection
-{
-    HatSwitch_Top         = 0,
-    HatSwitch_TopRight    = 1,
-    HatSwitch_Right       = 2,
-    HatSwitch_BottomRight = 3,
-    HatSwitch_Bottom      = 4,
-    HatSwitch_BottomLeft  = 5,
-    HatSwitch_Left        = 6,
-    HatSwitch_TopLeft     = 7,
-    HatSwitch_None        = 8
-};
-
 struct BackBuffer
 {
-    u8 *data;
     int width;
     int height;
     int pitch;
+    u8 *data;
 };
 
 struct DeviceUsage
@@ -64,4 +51,9 @@ struct Rectangle
     int height;
 };
 
-#endif // CORE_H
+// TODO: Services that the platform layer provides to the game
+
+// Service that the game provides to the platform layer
+void game_update_and_render(struct BackBuffer *buffer, struct Rectangle *box);
+
+#endif // GAME_H
