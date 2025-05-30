@@ -98,120 +98,115 @@ int main(int argc, const char *argv[])
     RUNNING = true;
     while (RUNNING)
     {
-        { // Event handling
-            NSEvent *event;
-            do
+        // Event handling
+        NSEvent *event;
+        do
+        {
+            event = [app nextEventMatchingMask:NSEventMaskAny
+                                     untilDate:nil
+                                        inMode:NSDefaultRunLoopMode
+                                       dequeue:YES];
+
+            switch ([event type])
             {
-                event = [app nextEventMatchingMask:NSEventMaskAny
-                                         untilDate:nil
-                                            inMode:NSDefaultRunLoopMode
-                                           dequeue:YES];
-
-                switch ([event type])
+            case NSEventTypeKeyDown:
+                printf("key down hex %x\n", event.keyCode);
+                if (event.keyCode == 0x35) // Escape
                 {
-                case NSEventTypeKeyDown:
-                    printf("key down hex %x\n", event.keyCode);
-                    if (event.keyCode == 0x35) // Escape
-                    {
-                        RUNNING = false;
-                    }
-                    if (event.keyCode == 0x31)
-                    {
-                        // AudioOutputUnitStart(audio_output.audio_unit);
-                    }
-                    else if (event.keyCode == 0x7e)
-                    {
-                        audio_output.frequency_hz += 20;
-                        audio_output.period = audio_output.sample_rate_khz /
-                                              audio_output.frequency_hz;
-                    }
-
-                    if (event.keyCode == 0x0d) // W
-                    {
-                        gamepad.dpad_y.state = -1;
-                    }
-                    else if (event.keyCode == 0x00) // A
-                    {
-                        gamepad.dpad_x.state = -1;
-                    }
-                    else if (event.keyCode == 0x01) // S
-                    {
-                        gamepad.dpad_y.state = 1;
-                    }
-                    else if (event.keyCode == 0x02) // D
-                    {
-                        gamepad.dpad_x.state = 1;
-                    }
-
-                    break;
-                case NSEventTypeKeyUp:
-                    if (event.keyCode == 0x31)
-                    {
-                        // AudioOutputUnitStop(audio_output.audio_unit);
-                    }
-                    else if (event.keyCode == 0x7d)
-                    {
-                        audio_output.frequency_hz -= 20;
-                        audio_output.period = audio_output.sample_rate_khz /
-                                              audio_output.frequency_hz;
-                    }
-                    if (event.keyCode == 0x0d || event.keyCode == 0x01)
-                    {
-                        gamepad.dpad_y.state = 0;
-                    }
-                    else if (event.keyCode == 0x00 || event.keyCode == 0x02)
-                    {
-                        gamepad.dpad_x.state = 0;
-                    }
-
-                    break;
-                default:
-                    [app sendEvent:event];
+                    RUNNING = false;
                 }
-            } while (event != nil);
-        }
+                if (event.keyCode == 0x31)
+                {
+                    // AudioOutputUnitStart(audio_output.audio_unit);
+                }
+                else if (event.keyCode == 0x7e)
+                {
+                    audio_output.frequency_hz += 20;
+                    audio_output.period = audio_output.sample_rate_khz /
+                                          audio_output.frequency_hz;
+                }
+
+                if (event.keyCode == 0x0d) // W
+                {
+                    gamepad.dpad_y.state = -1;
+                }
+                else if (event.keyCode == 0x00) // A
+                {
+                    gamepad.dpad_x.state = -1;
+                }
+                else if (event.keyCode == 0x01) // S
+                {
+                    gamepad.dpad_y.state = 1;
+                }
+                else if (event.keyCode == 0x02) // D
+                {
+                    gamepad.dpad_x.state = 1;
+                }
+
+                break;
+            case NSEventTypeKeyUp:
+                if (event.keyCode == 0x31)
+                {
+                    // AudioOutputUnitStop(audio_output.audio_unit);
+                }
+                else if (event.keyCode == 0x7d)
+                {
+                    audio_output.frequency_hz -= 20;
+                    audio_output.period = audio_output.sample_rate_khz /
+                                          audio_output.frequency_hz;
+                }
+                if (event.keyCode == 0x0d || event.keyCode == 0x01)
+                {
+                    gamepad.dpad_y.state = 0;
+                }
+                else if (event.keyCode == 0x00 || event.keyCode == 0x02)
+                {
+                    gamepad.dpad_x.state = 0;
+                }
+
+                break;
+            default:
+                [app sendEvent:event];
+            }
+        } while (event != nil);
 
         box.x += gamepad.dpad_x.state;
         box.y += gamepad.dpad_y.state;
 
-        { // Render
-            macos_render(&global_backbuffer);
-            macos_buffer_display(&global_backbuffer, window);
+        // Render
+        macos_render(&global_backbuffer);
+        macos_buffer_display(&global_backbuffer, window);
+
+        // Sound output
+
+        // write to circular buffer
+        s32 latency_sample_count = audio_output.sample_rate_khz / 15;
+
+        s32 target_queue_bytes =
+            latency_sample_count * audio_output.bytes_per_sample;
+        u32 target_cursor = (audio_output.play_cursor + target_queue_bytes) %
+                            audio_output.buffer_size;
+
+        s32 byte_to_lock = (audio_output.running_sample_index *
+                            audio_output.bytes_per_sample) %
+                           audio_output.buffer_size;
+        s32 bytes_to_write;
+
+        if (byte_to_lock > target_cursor)
+        {
+            // Play cursor wrapped
+            // Bytes to end of the circular buffer
+            bytes_to_write = audio_output.buffer_size - byte_to_lock;
+
+            // Bytes up to target cursor
+            bytes_to_write += target_cursor;
+        }
+        else
+        {
+            bytes_to_write = target_cursor - byte_to_lock;
         }
 
-        { // Sound output
-
-            // write to circular buffer
-            s32 latency_sample_count = audio_output.sample_rate_khz / 15;
-
-            s32 target_queue_bytes =
-                latency_sample_count * audio_output.bytes_per_sample;
-            u32 target_cursor =
-                (audio_output.play_cursor + target_queue_bytes) %
-                audio_output.buffer_size;
-
-            s32 byte_to_lock = (audio_output.running_sample_index *
-                                audio_output.bytes_per_sample) %
-                               audio_output.buffer_size;
-            s32 bytes_to_write;
-
-            if (byte_to_lock > target_cursor)
-            {
-                // Play cursor wrapped
-                // Bytes to end of the circular buffer
-                bytes_to_write = audio_output.buffer_size - byte_to_lock;
-
-                // Bytes up to target cursor
-                bytes_to_write += target_cursor;
-            }
-            else
-            {
-                bytes_to_write = target_cursor - byte_to_lock;
-            }
-
-            macos_audio_fill_buffer(&audio_output, byte_to_lock,
-                                    bytes_to_write);
-        }
+        macos_audio_fill_buffer(&audio_output, byte_to_lock, bytes_to_write);
     }
 
     printf("Handmade Hero finished running.\n");
