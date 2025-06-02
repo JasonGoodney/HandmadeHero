@@ -38,9 +38,9 @@ global struct Rectangle box = {
 {
     NSWindow *window = (NSWindow *)notification.object;
     CGRect rect      = macos_get_window_rect(window);
-    macos_buffer_resize(&global_backbuffer, rect.size.width, rect.size.height);
-    game_update_and_render(&global_backbuffer, &box);
-    macos_buffer_display(&global_backbuffer, window);
+    // macos_buffer_resize(&global_backbuffer, rect.size.width,
+    // rect.size.height); game_update_and_render(&global_backbuffer, &box);
+    // macos_buffer_display(&global_backbuffer, window);
 
     NSString *title =
         [NSString stringWithFormat:@"Handmade Hero (%x%d)",
@@ -54,13 +54,6 @@ int main(int argc, const char *argv[])
     NSApplication *app = [NSApplication sharedApplication];
     [app setActivationPolicy:NSApplicationActivationPolicyRegular];
     [app activateIgnoringOtherApps:YES];
-
-    struct Gamepad gamepad = {};
-    macos_device_register(&gamepad);
-
-    struct Macos_AudioOutput audio_output = {};
-    AudioComponentInstance audio_unit     = NULL;
-    macos_audio_create(&audio_output, audio_unit);
 
     NSRect screenRect = [[NSScreen mainScreen] frame];
 
@@ -95,6 +88,18 @@ int main(int argc, const char *argv[])
                                                  global_backbuffer.width,
                                                  global_backbuffer.height];
     [window setTitle:title];
+
+    struct Gamepad gamepad = {0};
+    macos_device_register(&gamepad);
+
+    struct Macos_AudioOutput audio_output = {0};
+    AudioComponentInstance audio_unit     = NULL;
+    macos_audio_create(&audio_output, audio_unit);
+
+    struct Game_AudioBuffer audio_buffer = {0};
+    audio_buffer.sample_rate_khz         = audio_output.sample_rate_khz;
+    s16 *samples =
+        calloc(audio_output.sample_rate_khz, audio_output.bytes_per_sample);
 
     RUNNING = true;
     struct mach_timebase_info timebase_info;
@@ -178,11 +183,7 @@ int main(int argc, const char *argv[])
         box.x += gamepad.dpad_x.state;
         box.y += gamepad.dpad_y.state;
 
-        // Render
-        game_update_and_render(&global_backbuffer, &box);
-        macos_buffer_display(&global_backbuffer, window);
-
-        // Sound output
+        // Audio
         // write to circular buffer
         s32 latency_sample_count = audio_output.sample_rate_khz / 15;
 
@@ -210,8 +211,19 @@ int main(int argc, const char *argv[])
             bytes_to_write = target_cursor - byte_to_lock;
         }
 
-        macos_audio_fill_buffer(&audio_output, byte_to_lock, bytes_to_write);
+        audio_buffer.samples = samples;
+        audio_buffer.sample_count =
+            bytes_to_write / audio_output.bytes_per_sample;
 
+        // Render
+        game_update_and_render(&global_backbuffer, &box, &audio_buffer,
+                               audio_output.frequency_hz);
+        macos_buffer_display(&global_backbuffer, window);
+
+        macos_audio_fill_buffer(&audio_output, &audio_buffer, byte_to_lock,
+                                bytes_to_write);
+
+        // Time Profiling
         u64 end_clock_tick     = mach_absolute_time();
         u64 elapsed_clock_tick = end_clock_tick - last_clock_tick;
         u64 elapsed_time_ns =
@@ -585,6 +597,7 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
 }
 
 internal void macos_audio_fill_buffer(struct Macos_AudioOutput *audio_output,
+                                      struct Game_AudioBuffer *audio_buffer,
                                       s32 byte_to_lock, s32 bytes_to_write)
 {
     void *region_1    = (u8 *)audio_output->data + byte_to_lock;
@@ -602,15 +615,9 @@ internal void macos_audio_fill_buffer(struct Macos_AudioOutput *audio_output,
 
     for (int i = 0; i < region_1_sample_count; i++)
     {
-        s16 sample = sinf(audio_output->time_sine) * audio_output->volume;
+        *sample_out++ = *audio_buffer->samples++;
+        *sample_out++ = *audio_buffer->samples++;
 
-        *sample_out = sample;
-        sample_out++;
-        *sample_out = sample;
-        sample_out++;
-
-        audio_output->time_sine +=
-            (2.0f * PI_F32 * 1.0f) / (f32)audio_output->period;
         audio_output->running_sample_index++;
     }
 
@@ -619,15 +626,9 @@ internal void macos_audio_fill_buffer(struct Macos_AudioOutput *audio_output,
 
     for (int i = 0; i < region_2_sample_count; i++)
     {
-        s16 sample = sinf(audio_output->time_sine) * audio_output->volume;
+        *sample_out++ = *audio_buffer->samples++;
+        *sample_out++ = *audio_buffer->samples++;
 
-        *sample_out = sample;
-        sample_out++;
-        *sample_out = sample;
-        sample_out++;
-
-        audio_output->time_sine +=
-            (2.0f * PI_F32 * 1.0f) / (f32)audio_output->period;
         audio_output->running_sample_index++;
     }
 }

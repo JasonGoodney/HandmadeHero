@@ -1,4 +1,5 @@
 #include "game.h"
+#include <math.h>
 
 void render_box(const struct Rectangle *box, const struct BackBuffer *buffer)
 {
@@ -30,7 +31,26 @@ void render_box(const struct Rectangle *box, const struct BackBuffer *buffer)
     }
 }
 
-void game_update_and_render(struct BackBuffer *buffer, struct Rectangle *box)
+void game_update_and_render(struct BackBuffer *buffer, struct Rectangle *box,
+                            struct Game_AudioBuffer *audio_buffer,
+                            s16 frequency)
 {
     render_box(box, buffer);
+
+    local f32 time_sine = 0.0f;
+    s32 volume          = 3000;
+    f32 wave_period     = (f32)audio_buffer->sample_rate_khz / frequency;
+    s16 *sample_out     = audio_buffer->samples;
+
+    for (int i = 0; i < audio_buffer->sample_count; i++)
+    {
+        s16 sample = sinf(time_sine) * volume;
+
+        *sample_out = sample;
+        sample_out++;
+        *sample_out = sample;
+        sample_out++;
+
+        time_sine += (2.0f * PI_F32 * 1.0f) / (f32)wave_period;
+    }
 }

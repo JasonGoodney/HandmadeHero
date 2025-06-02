@@ -28,6 +28,13 @@ struct BackBuffer
     u8 *data;
 };
 
+struct Game_AudioBuffer
+{
+    s32 sample_rate_khz;
+    s32 sample_count;
+    s16 *samples;
+};
+
 struct DeviceUsage
 {
     u32 usage_id;
@@ -54,6 +61,7 @@ struct Rectangle
 // TODO: Services that the platform layer provides to the game
 
 // Service that the game provides to the platform layer
-void game_update_and_render(struct BackBuffer *buffer, struct Rectangle *box);
+void game_update_and_render(struct BackBuffer *buffer, struct Rectangle *box,
+                            struct Game_AudioBuffer *audio_buffer, s16 frequency);
 
 #endif // GAME_H

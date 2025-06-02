@@ -28,6 +28,7 @@ struct Macos_AudioOutput
 internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
                                  AudioComponentInstance audio_unit);
 internal void macos_audio_fill_buffer(struct Macos_AudioOutput *audio_output,
+                                      struct Game_AudioBuffer *audio_buffer,
                                       s32 byte_to_lock, s32 bytes_to_write);
 
 // Device
