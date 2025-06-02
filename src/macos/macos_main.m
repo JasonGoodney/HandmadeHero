@@ -15,8 +15,10 @@ global const u16 RENDER_HEIGHT  = 64 * 8;
 global const u8 BYTES_PER_PIXEL = 4;
 
 global BOOL RUNNING;
-global struct BackBuffer global_backbuffer;
-global struct Rectangle box = {
+global struct BackBuffer g_back_buffer;
+global struct Game_AudioBuffer g_audio_buffer;
+global int g_frequency_hz;
+global struct Rectangle g_box = {
     .width  = 50,
     .height = 50,
     .x      = (RENDER_WIDTH / 2) - (50 / 2),
@@ -38,9 +40,10 @@ global struct Rectangle box = {
 {
     NSWindow *window = (NSWindow *)notification.object;
     CGRect rect      = macos_get_window_rect(window);
-    // macos_buffer_resize(&global_backbuffer, rect.size.width,
-    // rect.size.height); game_update_and_render(&global_backbuffer, &box);
-    // macos_buffer_display(&global_backbuffer, window);
+    macos_buffer_resize(&g_back_buffer, rect.size.width, rect.size.height);
+    game_update_and_render(&g_back_buffer, &g_box, &g_audio_buffer,
+                           g_frequency_hz);
+    macos_buffer_display(&g_back_buffer, window);
 
     NSString *title =
         [NSString stringWithFormat:@"Handmade Hero (%x%d)",
@@ -83,10 +86,10 @@ int main(int argc, const char *argv[])
     [window setDelegate:windowDelegate];
 
     CGRect rect = macos_get_window_rect(window);
-    macos_buffer_resize(&global_backbuffer, rect.size.width, rect.size.height);
-    NSString *title = [NSString stringWithFormat:@"Handmade Hero (%dx%d)",
-                                                 global_backbuffer.width,
-                                                 global_backbuffer.height];
+    macos_buffer_resize(&g_back_buffer, rect.size.width, rect.size.height);
+    NSString *title =
+        [NSString stringWithFormat:@"Handmade Hero (%dx%d)",
+                                   g_back_buffer.width, g_back_buffer.height];
     [window setTitle:title];
 
     struct Gamepad gamepad = {0};
@@ -96,10 +99,10 @@ int main(int argc, const char *argv[])
     AudioComponentInstance audio_unit     = NULL;
     macos_audio_create(&audio_output, audio_unit);
 
-    struct Game_AudioBuffer audio_buffer = {0};
-    audio_buffer.sample_rate_khz         = audio_output.sample_rate_khz;
     s16 *samples =
         calloc(audio_output.sample_rate_khz, audio_output.bytes_per_sample);
+    g_audio_buffer.sample_rate_khz = audio_output.sample_rate_khz;
+    g_frequency_hz                 = 256;
 
     RUNNING = true;
     struct mach_timebase_info timebase_info;
@@ -131,9 +134,7 @@ int main(int argc, const char *argv[])
                 }
                 else if (event.keyCode == 0x7e)
                 {
-                    audio_output.frequency_hz += 20;
-                    audio_output.period = audio_output.sample_rate_khz /
-                                          audio_output.frequency_hz;
+                    g_frequency_hz += 20;
                 }
 
                 if (event.keyCode == 0x0d) // W
@@ -161,9 +162,7 @@ int main(int argc, const char *argv[])
                 }
                 else if (event.keyCode == 0x7d)
                 {
-                    audio_output.frequency_hz -= 20;
-                    audio_output.period = audio_output.sample_rate_khz /
-                                          audio_output.frequency_hz;
+                    g_frequency_hz -= 20;
                 }
                 if (event.keyCode == 0x0d || event.keyCode == 0x01)
                 {
@@ -180,8 +179,8 @@ int main(int argc, const char *argv[])
             }
         } while (event != nil);
 
-        box.x += gamepad.dpad_x.state;
-        box.y += gamepad.dpad_y.state;
+        g_box.x += gamepad.dpad_x.state;
+        g_box.y += gamepad.dpad_y.state;
 
         // Audio
         // write to circular buffer
@@ -211,16 +210,16 @@ int main(int argc, const char *argv[])
             bytes_to_write = target_cursor - byte_to_lock;
         }
 
-        audio_buffer.samples = samples;
-        audio_buffer.sample_count =
+        g_audio_buffer.samples = samples;
+        g_audio_buffer.sample_count =
             bytes_to_write / audio_output.bytes_per_sample;
 
         // Render
-        game_update_and_render(&global_backbuffer, &box, &audio_buffer,
-                               audio_output.frequency_hz);
-        macos_buffer_display(&global_backbuffer, window);
+        game_update_and_render(&g_back_buffer, &g_box, &g_audio_buffer,
+                               g_frequency_hz);
+        macos_buffer_display(&g_back_buffer, window);
 
-        macos_audio_fill_buffer(&audio_output, &audio_buffer, byte_to_lock,
+        macos_audio_fill_buffer(&audio_output, &g_audio_buffer, byte_to_lock,
                                 bytes_to_write);
 
         // Time Profiling
@@ -531,13 +530,9 @@ internal OSStatus macos_audio_render_callback(
 internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
                                  AudioComponentInstance audio_unit)
 {
-    audio_output->channels         = 2;
-    audio_output->sample_rate_khz  = 48000;
-    audio_output->volume           = 3000;
-    audio_output->frequency_hz     = 256;
-    audio_output->bytes_per_sample = sizeof(s16) * 2;
-    audio_output->period =
-        audio_output->sample_rate_khz / audio_output->frequency_hz;
+    audio_output->channels             = 2;
+    audio_output->sample_rate_khz      = 48000;
+    audio_output->bytes_per_sample     = sizeof(s16) * 2;
     audio_output->running_sample_index = 0;
 
     // Allocates a 2 second buffer

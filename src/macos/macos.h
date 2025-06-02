@@ -14,10 +14,6 @@ struct Macos_AudioOutput
     s16 channels;
     s16 bytes_per_sample;
     s32 sample_rate_khz;
-    s32 volume;
-    s32 frequency_hz;
-    s32 period;
-    f32 time_sine;
     s32 play_cursor;
     u32 running_sample_index;
     size_t buffer_size;
