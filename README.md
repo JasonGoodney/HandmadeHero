@@ -15,6 +15,7 @@ From the series spawned the recent Handmade movement we us developers favor rein
 - Unofficial Mac Platform Layer: https://www.youtube.com/playlist?list=PLQOu9z2IsoWnvByDqg_CmihZogT5sI3uM
 - Unofficial Linux Platform Layer: https://davidgow.net/handmadepenguin/default.html
 
+### Day 012 - Platform Independent Sound Output
 ### Day 011 - Basics of Platform API Design
 ### Day 010 - Calculate Frames per Second
 ```
