@@ -20,7 +20,7 @@ typedef int64_t s64;
 typedef float f32;
 typedef double f64;
 
-struct BackBuffer
+struct Game_BackBuffer
 {
     int width;
     int height;
@@ -61,7 +61,9 @@ struct Rectangle
 // TODO: Services that the platform layer provides to the game
 
 // Service that the game provides to the platform layer
-void game_update_and_render(struct BackBuffer *buffer, struct Rectangle *box,
-                            struct Game_AudioBuffer *audio_buffer, s16 frequency);
+void game_update_and_render(struct Game_BackBuffer *buffer,
+                            struct Rectangle *box,
+                            struct Game_AudioBuffer *audio_buffer,
+                            s16 frequency);
 
 #endif // GAME_H

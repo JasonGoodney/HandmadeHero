@@ -15,7 +15,7 @@ global const u16 RENDER_HEIGHT  = 64 * 8;
 global const u8 BYTES_PER_PIXEL = 4;
 
 global BOOL RUNNING;
-global struct BackBuffer g_back_buffer;
+global struct Game_BackBuffer g_back_buffer;
 global struct Game_AudioBuffer g_audio_buffer;
 global int g_frequency_hz;
 global struct Rectangle g_box = {
@@ -244,7 +244,7 @@ internal CGRect macos_get_window_rect(const NSWindow *window)
     return window.contentView.bounds;
 }
 
-internal void macos_buffer_display(struct BackBuffer *buffer,
+internal void macos_buffer_display(struct Game_BackBuffer *buffer,
                                    const NSWindow *window)
 {
 
@@ -270,7 +270,7 @@ internal void macos_buffer_display(struct BackBuffer *buffer,
     }
 }
 
-internal void macos_buffer_resize(struct BackBuffer *buffer, int width,
+internal void macos_buffer_resize(struct Game_BackBuffer *buffer, int width,
                                   int height)
 {
     if (buffer->data)

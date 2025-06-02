@@ -1,7 +1,8 @@
 #include "game.h"
 #include <math.h>
 
-void render_box(const struct Rectangle *box, const struct BackBuffer *buffer)
+void render_box(const struct Rectangle *box,
+                const struct Game_BackBuffer *buffer)
 {
     int size = box->width;
 
@@ -31,7 +32,8 @@ void render_box(const struct Rectangle *box, const struct BackBuffer *buffer)
     }
 }
 
-void game_update_and_render(struct BackBuffer *buffer, struct Rectangle *box,
+void game_update_and_render(struct Game_BackBuffer *buffer,
+                            struct Rectangle *box,
                             struct Game_AudioBuffer *audio_buffer,
                             s16 frequency)
 {
