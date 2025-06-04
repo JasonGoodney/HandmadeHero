@@ -10,27 +10,22 @@
 
 #include <math.h>
 
-global const u16 RENDER_WIDTH   = 64 * 12;
-global const u16 RENDER_HEIGHT  = 64 * 8;
 global const u8 BYTES_PER_PIXEL = 4;
 
 global BOOL RUNNING;
 global struct Game_BackBuffer g_back_buffer;
 global struct Game_AudioBuffer g_audio_buffer;
 global int g_frequency_hz;
-global struct Rectangle g_box = {
-    .width  = 50,
-    .height = 50,
-    .x      = (RENDER_WIDTH / 2) - (50 / 2),
-    .y      = (RENDER_HEIGHT / 2) - (50 / 2),
-};
 
 @interface HandmadeWindowDelegate : NSObject <NSWindowDelegate>
-;
+
+@property(nonatomic, assign) struct Game_BackBuffer *back_buffer;
+@property(nonatomic, assign) struct Game_AudioBuffer *audio_buffer;
+@property(nonatomic, assign) struct G_Input *input;
+
 @end
 
 @implementation HandmadeWindowDelegate
-;
 - (void)windowWillClose:(NSNotification *)notification
 {
     RUNNING = NO;
@@ -38,19 +33,33 @@ global struct Rectangle g_box = {
 
 - (void)windowDidResize:(NSNotification *)notification
 {
+    if (self.back_buffer == NULL)
+    {
+        return;
+    }
+
     NSWindow *window = (NSWindow *)notification.object;
     CGRect rect      = macos_get_window_rect(window);
-    macos_buffer_resize(&g_back_buffer, rect.size.width, rect.size.height);
-    game_update_and_render(&g_back_buffer, &g_box, &g_audio_buffer,
-                           g_frequency_hz);
-    macos_buffer_display(&g_back_buffer, window);
+    macos_buffer_resize(self.back_buffer, rect.size.width, rect.size.height);
+    game_update_and_render(self.back_buffer, self.audio_buffer, self.input);
+    macos_buffer_display(self.back_buffer, window);
 
     NSString *title =
-        [NSString stringWithFormat:@"Handmade Hero (%x%d)",
+        [NSString stringWithFormat:@"Handmade Hero (%d x %d)",
                                    (int)rect.size.width, (int)rect.size.height];
     [window setTitle:title];
 }
 @end // HandmadeWindowDelegate
+
+internal void
+macos_process_gamepad_button(struct G_GamepadButtonState *prev_state,
+                             struct G_GamepadButtonState *curr_state,
+                             b32 curr_is_pressed)
+{
+    curr_state->ended_pressed = curr_is_pressed;
+    curr_state->half_transition_count +=
+        prev_state->ended_pressed == curr_state->ended_pressed ? 0 : 1;
+}
 
 int main(int argc, const char *argv[])
 {
@@ -88,12 +97,20 @@ int main(int argc, const char *argv[])
     CGRect rect = macos_get_window_rect(window);
     macos_buffer_resize(&g_back_buffer, rect.size.width, rect.size.height);
     NSString *title =
-        [NSString stringWithFormat:@"Handmade Hero (%dx%d)",
+        [NSString stringWithFormat:@"Handmade Hero (%d x %d)",
                                    g_back_buffer.width, g_back_buffer.height];
     [window setTitle:title];
 
     struct Gamepad gamepad = {0};
     macos_device_register(&gamepad);
+
+    struct G_Input inputs[2]   = {};
+    struct G_Input *curr_input = &inputs[0];
+    struct G_Input *prev_input = &inputs[1];
+
+    windowDelegate.back_buffer  = &g_back_buffer;
+    windowDelegate.audio_buffer = &g_audio_buffer;
+    windowDelegate.input        = curr_input;
 
     struct Macos_AudioOutput audio_output = {0};
     AudioComponentInstance audio_unit     = NULL;
@@ -179,8 +196,27 @@ int main(int argc, const char *argv[])
             }
         } while (event != nil);
 
-        g_box.x += gamepad.dpad_x.state;
-        g_box.y += gamepad.dpad_y.state;
+        struct G_GamepadInput *prev_gamepad = &prev_input->gamepads[0];
+        struct G_GamepadInput *curr_gamepad = &curr_input->gamepads[0];
+
+        macos_process_gamepad_button(&prev_gamepad->dpad_top,
+                                     &curr_gamepad->dpad_top,
+                                     gamepad.dpad_y.state == -1);
+
+        macos_process_gamepad_button(&prev_gamepad->dpad_bottom,
+                                     &curr_gamepad->dpad_bottom,
+                                     gamepad.dpad_y.state == 1);
+
+        macos_process_gamepad_button(&prev_gamepad->dpad_left,
+                                     &curr_gamepad->dpad_left,
+                                     gamepad.dpad_x.state == -1);
+
+        macos_process_gamepad_button(&prev_gamepad->dpad_right,
+                                     &curr_gamepad->dpad_right,
+                                     gamepad.dpad_x.state == 1);
+        struct G_Input *tmp = curr_input;
+        curr_input          = prev_input;
+        prev_input          = tmp;
 
         // Audio
         // write to circular buffer
@@ -215,8 +251,7 @@ int main(int argc, const char *argv[])
             bytes_to_write / audio_output.bytes_per_sample;
 
         // Render
-        game_update_and_render(&g_back_buffer, &g_box, &g_audio_buffer,
-                               g_frequency_hz);
+        game_update_and_render(&g_back_buffer, &g_audio_buffer, curr_input);
         macos_buffer_display(&g_back_buffer, window);
 
         macos_audio_fill_buffer(&audio_output, &g_audio_buffer, byte_to_lock,
@@ -230,7 +265,9 @@ int main(int argc, const char *argv[])
         f32 elapsed_time_s = (f32)elapsed_time_ns * 1.0E-9;
         f32 fps            = 1.f / elapsed_time_s;
 
+#if 0
         NSLog(@"frames/second %.02ffps", fps);
+#endif
         last_clock_tick = end_clock_tick;
     }
 

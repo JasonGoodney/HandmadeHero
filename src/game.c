@@ -1,10 +1,40 @@
 #include "game.h"
 #include <math.h>
 
-void render_box(const struct Rectangle *box,
-                const struct Game_BackBuffer *buffer)
+// TODO: handle endianesss for pixel buffer based on OS
+void game_update_and_render(struct Game_BackBuffer *buffer,
+                            struct Game_AudioBuffer *audio_buffer,
+                            struct G_Input *input)
 {
-    int size = box->width;
+    local s16 frequency        = 256;
+    local struct Rectangle box = {
+        .width  = 50,
+        .height = 50,
+        .x      = (RENDER_WIDTH / 2) - (50 / 2),
+        .y      = (RENDER_HEIGHT / 2) - (50 / 2),
+    };
+
+    // Input
+    struct G_GamepadInput gamepad = input->gamepads[0];
+    if (gamepad.dpad_top.ended_pressed)
+    {
+        box.y -= 1;
+    }
+    else if (gamepad.dpad_bottom.ended_pressed)
+    {
+        box.y += 1;
+    }
+    else if (gamepad.dpad_left.ended_pressed)
+    {
+        box.x -= 1;
+    }
+    else if (gamepad.dpad_right.ended_pressed)
+    {
+        box.x += 1;
+    }
+
+    // Pixels
+    int size = box.width;
 
     u8 *row = buffer->data;
     for (int y = 0; y < buffer->height; y += 1)
@@ -17,9 +47,9 @@ void render_box(const struct Rectangle *box,
             u8 b = 0;
             u8 a = 255;
 
-            if (x >= box->x && x <= box->x + size)
+            if (x >= box.x && x <= box.x + size)
             {
-                if (y >= box->y && y <= box->y + size)
+                if (y >= box.y && y <= box.y + size)
                 {
                     r = 255;
                 }
@@ -30,15 +60,8 @@ void render_box(const struct Rectangle *box,
         }
         row += buffer->pitch;
     }
-}
 
-void game_update_and_render(struct Game_BackBuffer *buffer,
-                            struct Rectangle *box,
-                            struct Game_AudioBuffer *audio_buffer,
-                            s16 frequency)
-{
-    render_box(box, buffer);
-
+    // Audio
     local f32 time_sine = 0.0f;
     s32 volume          = 3000;
     f32 wave_period     = (f32)audio_buffer->sample_rate_khz / frequency;
