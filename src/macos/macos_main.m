@@ -15,7 +15,6 @@ global const u8 BYTES_PER_PIXEL = 4;
 global BOOL RUNNING;
 global struct Game_BackBuffer g_back_buffer;
 global struct Game_AudioBuffer g_audio_buffer;
-global int g_frequency_hz;
 
 @interface HandmadeWindowDelegate : NSObject <NSWindowDelegate>
 
@@ -101,8 +100,8 @@ int main(int argc, const char *argv[])
                                    g_back_buffer.width, g_back_buffer.height];
     [window setTitle:title];
 
-    struct Gamepad gamepad = {0};
-    macos_device_register(&gamepad);
+    struct Gamepad mac_gamepad = {0};
+    macos_device_register(&mac_gamepad);
 
     struct G_Input inputs[2]   = {};
     struct G_Input *curr_input = &inputs[0];
@@ -119,7 +118,6 @@ int main(int argc, const char *argv[])
     s16 *samples =
         calloc(audio_output.sample_rate_khz, audio_output.bytes_per_sample);
     g_audio_buffer.sample_rate_khz = audio_output.sample_rate_khz;
-    g_frequency_hz                 = 256;
 
     RUNNING = true;
     struct mach_timebase_info timebase_info;
@@ -151,24 +149,23 @@ int main(int argc, const char *argv[])
                 }
                 else if (event.keyCode == 0x7e)
                 {
-                    g_frequency_hz += 20;
                 }
 
                 if (event.keyCode == 0x0d) // W
                 {
-                    gamepad.dpad_y.state = -1;
+                    mac_gamepad.dpad_y.state = -1;
                 }
                 else if (event.keyCode == 0x00) // A
                 {
-                    gamepad.dpad_x.state = -1;
+                    mac_gamepad.dpad_x.state = -1;
                 }
                 else if (event.keyCode == 0x01) // S
                 {
-                    gamepad.dpad_y.state = 1;
+                    mac_gamepad.dpad_y.state = 1;
                 }
                 else if (event.keyCode == 0x02) // D
                 {
-                    gamepad.dpad_x.state = 1;
+                    mac_gamepad.dpad_x.state = 1;
                 }
 
                 break;
@@ -179,15 +176,14 @@ int main(int argc, const char *argv[])
                 }
                 else if (event.keyCode == 0x7d)
                 {
-                    g_frequency_hz -= 20;
                 }
                 if (event.keyCode == 0x0d || event.keyCode == 0x01)
                 {
-                    gamepad.dpad_y.state = 0;
+                    mac_gamepad.dpad_y.state = 0;
                 }
                 else if (event.keyCode == 0x00 || event.keyCode == 0x02)
                 {
-                    gamepad.dpad_x.state = 0;
+                    mac_gamepad.dpad_x.state = 0;
                 }
 
                 break;
@@ -201,19 +197,52 @@ int main(int argc, const char *argv[])
 
         macos_process_gamepad_button(&prev_gamepad->dpad_top,
                                      &curr_gamepad->dpad_top,
-                                     gamepad.dpad_y.state == -1);
+                                     mac_gamepad.dpad_y.state == -1);
 
         macos_process_gamepad_button(&prev_gamepad->dpad_bottom,
                                      &curr_gamepad->dpad_bottom,
-                                     gamepad.dpad_y.state == 1);
+                                     mac_gamepad.dpad_y.state == 1);
 
         macos_process_gamepad_button(&prev_gamepad->dpad_left,
                                      &curr_gamepad->dpad_left,
-                                     gamepad.dpad_x.state == -1);
+                                     mac_gamepad.dpad_x.state == -1);
 
         macos_process_gamepad_button(&prev_gamepad->dpad_right,
                                      &curr_gamepad->dpad_right,
-                                     gamepad.dpad_x.state == 1);
+                                     mac_gamepad.dpad_x.state == 1);
+
+        curr_gamepad->start_x = prev_gamepad->end_x;
+        curr_gamepad->start_y = prev_gamepad->end_y;
+
+        if (mac_gamepad.analog_stick_left_x.state < 128)
+        {
+            curr_gamepad->end_x =
+                ((f32)mac_gamepad.analog_stick_left_x.state / 127) - 1;
+        }
+        else
+        {
+            curr_gamepad->end_x =
+                (((f32)mac_gamepad.analog_stick_left_x.state - 128) / 127);
+        }
+
+        if (mac_gamepad.analog_stick_left_y.state < 128)
+        {
+            curr_gamepad->end_y =
+                ((f32)mac_gamepad.analog_stick_left_y.state / 127) - 1;
+        }
+        else
+        {
+            curr_gamepad->end_y =
+                (((f32)mac_gamepad.analog_stick_left_y.state - 128) / 127);
+        }
+
+        // TODO: min/max macros
+        curr_gamepad->min_x = curr_gamepad->max_x = curr_gamepad->end_x;
+        curr_gamepad->min_y = curr_gamepad->max_y = curr_gamepad->end_y;
+
+#if 0 // my ps4 sticks are messed up and output feedback even while idle
+        curr_gamepad->is_analog = true;
+#endif
         struct G_Input *tmp = curr_input;
         curr_input          = prev_input;
         prev_input          = tmp;
@@ -336,6 +365,7 @@ internal void macos_device_input_callback(void *context, IOReturn result,
     u32 usage               = IOHIDElementGetUsage(element);
     s32 state               = (s32)IOHIDValueGetIntegerValue(value);
 
+    //  printf("usage: %d\n", usage);
     struct Gamepad *gamepad = (struct Gamepad *)context;
 
     if (usagePage == kHIDPage_Button)
@@ -359,9 +389,28 @@ internal void macos_device_input_callback(void *context, IOReturn result,
     }
     else if (usagePage == kHIDPage_GenericDesktop)
     {
-        // s64 analog =
-        //     IOHIDValueGetScaledValue(value, kIOHIDValueScaleTypeCalibrated);
-        // printf("analog, %ld\n", analog);
+        s32 analog =
+            IOHIDValueGetScaledValue(value, kIOHIDValueScaleTypeCalibrated);
+        if (analog < 120 || 140 < analog)
+        {
+            printf("analog: %d\n", analog);
+        }
+        if (usage == kHIDUsage_GD_X)
+        {
+            gamepad->analog_stick_left_x.state = analog;
+        }
+        if (usage == kHIDUsage_GD_Y)
+        {
+            gamepad->analog_stick_left_y.state = analog;
+        }
+        if (usage == kHIDUsage_GD_Rx)
+        {
+            gamepad->analog_stick_right_x.state = analog;
+        }
+        if (usage == kHIDUsage_GD_Ry)
+        {
+            gamepad->analog_stick_right_y.state = analog;
+        }
         if (usage == kHIDUsage_GD_Hatswitch)
         {
             if (state == 0)
@@ -473,6 +522,11 @@ internal void macos_device_callback(void *context, IOReturn result,
         gamepad->face_top.usage_id    = 0x04;
         gamepad->dpad_x.usage_id      = 0x39;
         gamepad->dpad_y.usage_id      = 0x39;
+
+        gamepad->analog_stick_left_x.state  = 128.f;
+        gamepad->analog_stick_left_y.state  = 128.f;
+        gamepad->analog_stick_right_x.state = 128.f;
+        gamepad->analog_stick_right_y.state = 128.f;
     }
     else
     {

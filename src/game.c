@@ -6,7 +6,6 @@ void game_update_and_render(struct Game_BackBuffer *buffer,
                             struct Game_AudioBuffer *audio_buffer,
                             struct G_Input *input)
 {
-    local s16 frequency        = 256;
     local struct Rectangle box = {
         .width  = 50,
         .height = 50,
@@ -16,6 +15,13 @@ void game_update_and_render(struct Game_BackBuffer *buffer,
 
     // Input
     struct G_GamepadInput gamepad = input->gamepads[0];
+
+    if (gamepad.is_analog)
+    {
+        box.x = gamepad.end_x;
+        box.y = gamepad.end_y;
+    }
+
     if (gamepad.dpad_top.ended_pressed)
     {
         box.y -= 1;
@@ -61,7 +67,9 @@ void game_update_and_render(struct Game_BackBuffer *buffer,
         row += buffer->pitch;
     }
 
+#if 0
     // Audio
+    local s16 frequency = 256;
     local f32 time_sine = 0.0f;
     s32 volume          = 3000;
     f32 wave_period     = (f32)audio_buffer->sample_rate_khz / frequency;
@@ -78,4 +86,5 @@ void game_update_and_render(struct Game_BackBuffer *buffer,
 
         time_sine += (2.0f * PI_F32 * 1.0f) / (f32)wave_period;
     }
+#endif
 }

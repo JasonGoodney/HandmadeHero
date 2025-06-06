@@ -95,7 +95,8 @@ struct Gamepad
     struct DeviceUsage dpad_x, dpad_y;
     struct DeviceUsage should_left, should_right;
     struct DeviceUsage trigger_left, trigger_right;
-    struct DeviceUsage analog_stick_left, analog_stick_right;
+    struct DeviceUsage analog_stick_left_x, analog_stick_left_y;
+    struct DeviceUsage analog_stick_right_x, analog_stick_right_y;
 };
 
 struct Rectangle
