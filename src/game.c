@@ -1,46 +1,54 @@
 #include "game.h"
-#include <math.h>
 
 // TODO: handle endianesss for pixel buffer based on OS
-void game_update_and_render(struct Game_BackBuffer *buffer,
+void game_update_and_render(struct G_Memory *memory,
+                            struct Game_BackBuffer *buffer,
                             struct Game_AudioBuffer *audio_buffer,
                             struct G_Input *input)
 {
-    local struct Rectangle box = {
-        .width  = 50,
-        .height = 50,
-        .x      = (RENDER_WIDTH / 2) - (50 / 2),
-        .y      = (RENDER_HEIGHT / 2) - (50 / 2),
-    };
+    ASSERT(sizeof(struct G_State) <= memory->permenant_size);
+
+    struct G_State *game_state = (struct G_State *)memory;
+
+    if (!memory->is_initialized)
+    {
+        game_state->frequency_hz = 256;
+        game_state->box.width    = 50;
+        game_state->box.height   = 50;
+        game_state->box.x        = (RENDER_WIDTH / 2) - (50 / 2);
+        game_state->box.y        = (RENDER_HEIGHT / 2) - (50 / 2);
+
+        memory->is_initialized = 1;
+    }
 
     // Input
     struct G_GamepadInput gamepad = input->gamepads[0];
 
     if (gamepad.is_analog)
     {
-        box.x = gamepad.end_x;
-        box.y = gamepad.end_y;
+        game_state->box.x = gamepad.end_x;
+        game_state->box.y = gamepad.end_y;
     }
 
     if (gamepad.dpad_top.ended_pressed)
     {
-        box.y -= 1;
+        game_state->box.y -= 1;
     }
     else if (gamepad.dpad_bottom.ended_pressed)
     {
-        box.y += 1;
+        game_state->box.y += 1;
     }
     else if (gamepad.dpad_left.ended_pressed)
     {
-        box.x -= 1;
+        game_state->box.x -= 1;
     }
     else if (gamepad.dpad_right.ended_pressed)
     {
-        box.x += 1;
+        game_state->box.x += 1;
     }
 
     // Pixels
-    int size = box.width;
+    int size = game_state->box.width;
 
     u8 *row = buffer->data;
     for (int y = 0; y < buffer->height; y += 1)
@@ -53,9 +61,9 @@ void game_update_and_render(struct Game_BackBuffer *buffer,
             u8 b = 0;
             u8 a = 255;
 
-            if (x >= box.x && x <= box.x + size)
+            if (x >= game_state->box.x && x <= game_state->box.x + size)
             {
-                if (y >= box.y && y <= box.y + size)
+                if (y >= game_state->box.y && y <= game_state->box.y + size)
                 {
                     r = 255;
                 }
@@ -69,10 +77,9 @@ void game_update_and_render(struct Game_BackBuffer *buffer,
 
 #if 0
     // Audio
-    local s16 frequency = 256;
     local f32 time_sine = 0.0f;
     s32 volume          = 3000;
-    f32 wave_period     = (f32)audio_buffer->sample_rate_khz / frequency;
+    f32 wave_period     = (f32)audio_buffer->sample_rate_khz / game_state->frequency_hz;
     s16 *sample_out     = audio_buffer->samples;
 
     for (int i = 0; i < audio_buffer->sample_count; i++)

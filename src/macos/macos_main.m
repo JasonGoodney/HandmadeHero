@@ -2,6 +2,8 @@
 #include <Carbon/Carbon.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/hid/IOHIDLib.h>
+#include <OpenGL/OpenGL.h>
+#include <Security/Security.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
 
@@ -9,6 +11,8 @@
 #include "macos.h"
 
 #include <math.h>
+#include <stdlib.h>
+#include <sys/mman.h>
 
 global const u8 BYTES_PER_PIXEL = 4;
 
@@ -18,6 +22,7 @@ global struct Game_AudioBuffer g_audio_buffer;
 
 @interface HandmadeWindowDelegate : NSObject <NSWindowDelegate>
 
+@property(nonatomic, assign) struct G_Memory *memory;
 @property(nonatomic, assign) struct Game_BackBuffer *back_buffer;
 @property(nonatomic, assign) struct Game_AudioBuffer *audio_buffer;
 @property(nonatomic, assign) struct G_Input *input;
@@ -32,21 +37,22 @@ global struct Game_AudioBuffer g_audio_buffer;
 
 - (void)windowDidResize:(NSNotification *)notification
 {
-    if (self.back_buffer == NULL)
-    {
-        return;
-    }
-
     NSWindow *window = (NSWindow *)notification.object;
     CGRect rect      = macos_get_window_rect(window);
-    macos_buffer_resize(self.back_buffer, rect.size.width, rect.size.height);
-    game_update_and_render(self.back_buffer, self.audio_buffer, self.input);
-    macos_buffer_display(self.back_buffer, window);
 
     NSString *title =
         [NSString stringWithFormat:@"Handmade Hero (%d x %d)",
                                    (int)rect.size.width, (int)rect.size.height];
     [window setTitle:title];
+
+    if (self.memory && self.back_buffer && self.audio_buffer && self.input)
+    {
+        macos_buffer_resize(self.back_buffer, rect.size.width,
+                            rect.size.height);
+        game_update_and_render(self.memory, self.back_buffer, self.audio_buffer,
+                               self.input);
+        macos_buffer_display(self.back_buffer, window);
+    }
 }
 @end // HandmadeWindowDelegate
 
@@ -103,13 +109,9 @@ int main(int argc, const char *argv[])
     struct Gamepad mac_gamepad = {0};
     macos_device_register(&mac_gamepad);
 
-    struct G_Input inputs[2]   = {};
+    struct G_Input inputs[2]   = {0};
     struct G_Input *curr_input = &inputs[0];
     struct G_Input *prev_input = &inputs[1];
-
-    windowDelegate.back_buffer  = &g_back_buffer;
-    windowDelegate.audio_buffer = &g_audio_buffer;
-    windowDelegate.input        = curr_input;
 
     struct Macos_AudioOutput audio_output = {0};
     AudioComponentInstance audio_unit     = NULL;
@@ -118,6 +120,30 @@ int main(int argc, const char *argv[])
     s16 *samples =
         calloc(audio_output.sample_rate_khz, audio_output.bytes_per_sample);
     g_audio_buffer.sample_rate_khz = audio_output.sample_rate_khz;
+
+#if HANDMADE_INTERNAL
+    void *base_address = (void *)TERABYTES(2);
+#else
+    void *base_address = (void *)0;
+#endif
+
+    struct G_Memory memory = {0};
+    memory.permenant_size  = MEGABYTES(64);
+    memory.transient_size  = GIGABYTES(2);
+    memory.permenant =
+        mmap(base_address, (u64)(memory.permenant_size + memory.transient_size),
+             PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+    memory.transient = ((u8 *)memory.permenant + memory.permenant_size);
+
+    if (!samples && !memory.permenant && !memory.transient)
+    {
+        NSLog(@"Error setting up memory");
+    }
+
+    windowDelegate.memory       = &memory;
+    windowDelegate.back_buffer  = &g_back_buffer;
+    windowDelegate.audio_buffer = &g_audio_buffer;
+    windowDelegate.input        = curr_input;
 
     RUNNING = true;
     struct mach_timebase_info timebase_info;
@@ -280,7 +306,9 @@ int main(int argc, const char *argv[])
             bytes_to_write / audio_output.bytes_per_sample;
 
         // Render
-        game_update_and_render(&g_back_buffer, &g_audio_buffer, curr_input);
+
+        game_update_and_render(&memory, &g_back_buffer, &g_audio_buffer,
+                               curr_input);
         macos_buffer_display(&g_back_buffer, window);
 
         macos_audio_fill_buffer(&audio_output, &g_audio_buffer, byte_to_lock,

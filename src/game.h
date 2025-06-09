@@ -1,11 +1,37 @@
 #ifndef GAME_H
 #define GAME_H
 
-#include <stdint.h>
+//
+// NOTE
+// HANDMADE_INTERNAL
+//  0 - Build for public release
+//  1 - Build for developer only
+//
+// HANDMADE_SLOW
+//  0 - No slow code allowed
+//  1 - Slow code welcome
+//
 
 #define internal static
 #define local static
 #define global static
+
+#if HANDMADE_SLOW
+#define ASSERT(expression)                                                     \
+    if (!(expression))                                                         \
+    {                                                                          \
+        *(int *)0 = 0;                                                         \
+    }
+#else
+#define ASSERT(expression)
+#endif
+
+#define KILOBYTES(value) ((value) * 1024LL)
+#define MEGABYTES(value) (KILOBYTES(value) * 1024LL)
+#define GIGABYTES(value) (MEGABYTES(value) * 1024LL)
+#define TERABYTES(value) (GIGABYTES(value) * 1024LL)
+
+#include <stdint.h>
 
 typedef uint8_t u8;
 typedef uint16_t u16;
@@ -23,6 +49,30 @@ global const u32 RENDER_WIDTH  = 64 * 12;
 global const u32 RENDER_HEIGHT = 64 * 8;
 
 #define PI_F32 3.14159265359f
+
+struct DeviceUsage
+{
+    u32 usage_id;
+    u32 state;
+};
+
+struct Gamepad
+{
+    struct DeviceUsage face_top, face_bottom, face_left, face_right;
+    struct DeviceUsage dpad_x, dpad_y;
+    struct DeviceUsage should_left, should_right;
+    struct DeviceUsage trigger_left, trigger_right;
+    struct DeviceUsage analog_stick_left_x, analog_stick_left_y;
+    struct DeviceUsage analog_stick_right_x, analog_stick_right_y;
+};
+
+struct Rectangle
+{
+    int x;
+    int y;
+    int width;
+    int height;
+};
 
 struct Game_BackBuffer
 {
@@ -83,35 +133,29 @@ struct G_Input
     struct G_GamepadInput gamepads[4];
 };
 
-struct DeviceUsage
+struct G_Memory
 {
-    u32 usage_id;
-    u32 state;
+    b32 is_initialized;
+
+    u64 permenant_size;
+    void *permenant;
+
+    u64 transient_size;
+    void *transient;
 };
 
-struct Gamepad
+struct G_State
 {
-    struct DeviceUsage face_top, face_bottom, face_left, face_right;
-    struct DeviceUsage dpad_x, dpad_y;
-    struct DeviceUsage should_left, should_right;
-    struct DeviceUsage trigger_left, trigger_right;
-    struct DeviceUsage analog_stick_left_x, analog_stick_left_y;
-    struct DeviceUsage analog_stick_right_x, analog_stick_right_y;
-};
-
-struct Rectangle
-{
-    int x;
-    int y;
-    int width;
-    int height;
+    s16 frequency_hz;
+    struct Rectangle box;
 };
 
 // TODO: Services that the platform layer provides to the game
 
 // Service that the game provides to the platform layer
-void game_topdate_and_render(struct Game_BackBuffer *buffer,
-                             struct Game_AudioBuffer *audio_buffer,
-                             struct G_Input *input);
+void game_update_and_render(struct G_Memory *memory,
+                            struct Game_BackBuffer *buffer,
+                            struct Game_AudioBuffer *audio_buffer,
+                            struct G_Input *input);
 
 #endif // GAME_H
