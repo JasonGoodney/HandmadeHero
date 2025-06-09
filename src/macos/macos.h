@@ -24,7 +24,7 @@ struct Macos_AudioOutput
 internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
                                  AudioComponentInstance audio_unit);
 internal void macos_audio_fill_buffer(struct Macos_AudioOutput *audio_output,
-                                      struct Game_AudioBuffer *audio_buffer,
+                                      struct G_AudioBuffer *audio_buffer,
                                       s32 byte_to_lock, s32 bytes_to_write);
 
 // Device
@@ -36,9 +36,9 @@ internal void macos_device_callback(void *context, IOReturn result,
 
 // Render
 internal CGRect macos_get_window_rect(const NSWindow *window);
-internal void macos_buffer_resize(struct Game_BackBuffer *buffer, int width,
+internal void macos_buffer_resize(struct G_BackBuffer *buffer, int width,
                                   int height);
-internal void macos_buffer_display(struct Game_BackBuffer *buffer,
+internal void macos_buffer_display(struct G_BackBuffer *buffer,
                                    const NSWindow *window);
 
 #endif // PLATFORM_MACOS_H

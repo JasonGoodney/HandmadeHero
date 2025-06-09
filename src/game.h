@@ -74,7 +74,7 @@ struct Rectangle
     int height;
 };
 
-struct Game_BackBuffer
+struct G_BackBuffer
 {
     int width;
     int height;
@@ -82,7 +82,7 @@ struct Game_BackBuffer
     u8 *data;
 };
 
-struct Game_AudioBuffer
+struct G_AudioBuffer
 {
     s32 sample_rate_khz;
     s32 sample_count;
@@ -154,8 +154,8 @@ struct G_State
 
 // Service that the game provides to the platform layer
 void game_update_and_render(struct G_Memory *memory,
-                            struct Game_BackBuffer *buffer,
-                            struct Game_AudioBuffer *audio_buffer,
+                            struct G_BackBuffer *buffer,
+                            struct G_AudioBuffer *audio_buffer,
                             struct G_Input *input);
 
 #endif // GAME_H

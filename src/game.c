@@ -2,8 +2,8 @@
 
 // TODO: handle endianesss for pixel buffer based on OS
 void game_update_and_render(struct G_Memory *memory,
-                            struct Game_BackBuffer *buffer,
-                            struct Game_AudioBuffer *audio_buffer,
+                            struct G_BackBuffer *buffer,
+                            struct G_AudioBuffer *audio_buffer,
                             struct G_Input *input)
 {
     ASSERT(sizeof(struct G_State) <= memory->permenant_size);

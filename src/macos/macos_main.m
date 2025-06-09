@@ -17,14 +17,14 @@
 global const u8 BYTES_PER_PIXEL = 4;
 
 global BOOL RUNNING;
-global struct Game_BackBuffer g_back_buffer;
-global struct Game_AudioBuffer g_audio_buffer;
+global struct G_BackBuffer g_back_buffer;
+global struct G_AudioBuffer g_audio_buffer;
 
 @interface HandmadeWindowDelegate : NSObject <NSWindowDelegate>
 
 @property(nonatomic, assign) struct G_Memory *memory;
-@property(nonatomic, assign) struct Game_BackBuffer *back_buffer;
-@property(nonatomic, assign) struct Game_AudioBuffer *audio_buffer;
+@property(nonatomic, assign) struct G_BackBuffer *back_buffer;
+@property(nonatomic, assign) struct G_AudioBuffer *audio_buffer;
 @property(nonatomic, assign) struct G_Input *input;
 
 @end
@@ -338,7 +338,7 @@ internal CGRect macos_get_window_rect(const NSWindow *window)
     return window.contentView.bounds;
 }
 
-internal void macos_buffer_display(struct Game_BackBuffer *buffer,
+internal void macos_buffer_display(struct G_BackBuffer *buffer,
                                    const NSWindow *window)
 {
 
@@ -364,7 +364,7 @@ internal void macos_buffer_display(struct Game_BackBuffer *buffer,
     }
 }
 
-internal void macos_buffer_resize(struct Game_BackBuffer *buffer, int width,
+internal void macos_buffer_resize(struct G_BackBuffer *buffer, int width,
                                   int height)
 {
     if (buffer->data)
@@ -711,7 +711,7 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
 }
 
 internal void macos_audio_fill_buffer(struct Macos_AudioOutput *audio_output,
-                                      struct Game_AudioBuffer *audio_buffer,
+                                      struct G_AudioBuffer *audio_buffer,
                                       s32 byte_to_lock, s32 bytes_to_write)
 {
     void *region_1    = (u8 *)audio_output->data + byte_to_lock;
