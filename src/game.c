@@ -1,4 +1,5 @@
 #include "game.h"
+#include <math.h>
 
 internal u32 safe_truncate_uint64(u64 value)
 {
@@ -15,7 +16,7 @@ void game_update_and_render(struct G_Memory *memory,
 {
     ASSERT(sizeof(struct G_State) <= memory->permenant_size);
 
-    struct G_State *game_state = (struct G_State *)memory;
+    struct G_State *game_state = (struct G_State *)memory->permenant;
 
     if (!memory->is_initialized)
     {
@@ -92,12 +93,12 @@ void game_update_and_render(struct G_Memory *memory,
         row += buffer->pitch;
     }
 
-#if 0
     // Audio
     local f32 time_sine = 0.0f;
     s32 volume          = 3000;
-    f32 wave_period     = (f32)audio_buffer->sample_rate_khz / game_state->frequency_hz;
-    s16 *sample_out     = audio_buffer->samples;
+    f32 wave_period =
+        (f32)audio_buffer->sample_rate_khz / game_state->frequency_hz;
+    s16 *sample_out = audio_buffer->samples;
 
     for (int i = 0; i < audio_buffer->sample_count; i++)
     {
@@ -110,5 +111,4 @@ void game_update_and_render(struct G_Memory *memory,
 
         time_sine += (2.0f * PI_F32 * 1.0f) / (f32)wave_period;
     }
-#endif
 }
