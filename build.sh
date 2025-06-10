@@ -29,7 +29,8 @@ CXX="clang"
 
 CXX_FLAGS="-g
            -Werror
-           -Wall"
+           -Wall
+           -Wextra"
 
 OSX_LD_FLAGS="-framework AppKit
               -framework IOKit
