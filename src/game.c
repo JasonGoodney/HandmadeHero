@@ -1,5 +1,12 @@
 #include "game.h"
 
+internal u32 safe_truncate_uint64(u64 value)
+{
+    ASSERT(value <= 0xFFFFFFFF);
+    u32 result = (u32)value;
+    return (result);
+}
+
 // TODO: handle endianesss for pixel buffer based on OS
 void game_update_and_render(struct G_Memory *memory,
                             struct G_BackBuffer *buffer,
@@ -7,7 +14,15 @@ void game_update_and_render(struct G_Memory *memory,
                             struct G_Input *input)
 {
     ASSERT(sizeof(struct G_State) <= memory->permenant_size);
+#if HANDMADE_INTERNAL
+    struct DEBUG_read_file_result result = DEBUG_platform_read_file(__FILE__);
+    if (result.data)
+    {
 
+        DEBUG_platform_write_file("test.out", result.size, result.data);
+        DEBUG_platform_free_file_data(result.data);
+    }
+#endif
     struct G_State *game_state = (struct G_State *)memory;
 
     if (!memory->is_initialized)

@@ -13,6 +13,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 
 global const u8 BYTES_PER_PIXEL = 4;
 
@@ -55,6 +56,91 @@ global struct G_AudioBuffer g_audio_buffer;
     }
 }
 @end // HandmadeWindowDelegate
+
+internal struct DEBUG_read_file_result DEBUG_platform_read_file(char *path)
+{
+    struct DEBUG_read_file_result result = {0};
+
+    // open/create file
+    int file_handle = open(path, O_RDONLY);
+    if (file_handle == -1)
+    {
+        return result;
+    }
+
+    // get file size
+    struct stat file_status;
+    if (fstat(file_handle, &file_status) == -1)
+    {
+        close(file_handle);
+        return result;
+    }
+
+    result.size = safe_truncate_uint64(file_status.st_size);
+
+    // alloc file memory
+    result.data = malloc(result.size);
+    if (!result.data)
+    {
+        result.size = 0;
+        close(file_handle);
+        return result;
+    }
+
+    // read file
+    u32 bytes_to_read       = result.size;
+    u8 *next_bytes_location = (u8 *)result.data;
+    while (bytes_to_read)
+    {
+        u32 bytes_read = read(file_handle, next_bytes_location, bytes_to_read);
+        if (bytes_read == -1)
+        {
+            free(result.data);
+            result.data = 0;
+            result.size = 0;
+            close(file_handle);
+            return result;
+        }
+
+        bytes_to_read -= bytes_read;
+        next_bytes_location += bytes_read;
+    }
+
+    // close handle
+    close(file_handle);
+
+    return result;
+}
+
+internal b32 DEBUG_platform_write_file(char *path, u32 size, void *data)
+{
+    int file_handle =
+        open(path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    u32 bytes_to_read       = size;
+    u8 *next_bytes_location = (u8 *)data;
+    while (bytes_to_read)
+    {
+        u32 bytes_read = write(file_handle, next_bytes_location, bytes_to_read);
+        if (bytes_read == -1)
+        {
+            close(file_handle);
+            return 0;
+        }
+
+        bytes_to_read -= bytes_read;
+        next_bytes_location += bytes_read;
+    }
+
+    return 1;
+}
+
+internal void DEBUG_platform_free_file_data(void *data)
+{
+    if (data)
+    {
+        free(data);
+    }
+}
 
 internal void
 macos_process_gamepad_button(struct G_GamepadButtonState *prev_state,

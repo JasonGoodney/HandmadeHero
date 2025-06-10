@@ -16,21 +16,6 @@
 #define local static
 #define global static
 
-#if HANDMADE_SLOW
-#define ASSERT(expression)                                                     \
-    if (!(expression))                                                         \
-    {                                                                          \
-        *(int *)0 = 0;                                                         \
-    }
-#else
-#define ASSERT(expression)
-#endif
-
-#define KILOBYTES(value) ((value) * 1024LL)
-#define MEGABYTES(value) (KILOBYTES(value) * 1024LL)
-#define GIGABYTES(value) (MEGABYTES(value) * 1024LL)
-#define TERABYTES(value) (GIGABYTES(value) * 1024LL)
-
 #include <stdint.h>
 
 typedef uint8_t u8;
@@ -44,6 +29,23 @@ typedef int64_t s64;
 typedef s32 b32;
 typedef float f32;
 typedef double f64;
+
+#if HANDMADE_SLOW
+#define ASSERT(Expression)                                                     \
+    if (!(Expression))                                                         \
+    {                                                                          \
+        *(int *)0 = 0;                                                         \
+    }
+#else
+#define ASSERT(Expression)
+#endif
+
+internal u32 safe_truncate_uint64(u64 value);
+
+#define KILOBYTES(value) ((value) * 1024LL)
+#define MEGABYTES(value) (KILOBYTES(value) * 1024LL)
+#define GIGABYTES(value) (MEGABYTES(value) * 1024LL)
+#define TERABYTES(value) (GIGABYTES(value) * 1024LL)
 
 global const u32 RENDER_WIDTH  = 64 * 12;
 global const u32 RENDER_HEIGHT = 64 * 8;
@@ -150,7 +152,18 @@ struct G_State
     struct Rectangle box;
 };
 
+struct DEBUG_read_file_result
+{
+    u32 size;
+    void *data;
+};
+
 // TODO: Services that the platform layer provides to the game
+#if HANDMADE_INTERNAL
+internal struct DEBUG_read_file_result DEBUG_platform_read_file(char *path);
+internal b32 DEBUG_platform_write_file(char *filename, u32 size, void *data);
+internal void DEBUG_platform_free_file_data(void *data);
+#endif
 
 // Service that the game provides to the platform layer
 void game_update_and_render(struct G_Memory *memory,
