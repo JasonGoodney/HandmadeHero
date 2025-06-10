@@ -40,6 +40,8 @@ typedef double f64;
 #define ASSERT(Expression)
 #endif
 
+#define UNUSED(x) (void)(x)
+
 internal u32 safe_truncate_uint64(u64 value);
 
 #define KILOBYTES(value) ((value) * 1024LL)
@@ -55,7 +57,7 @@ global const u32 RENDER_HEIGHT = 64 * 8;
 struct DeviceUsage
 {
     u32 usage_id;
-    u32 state;
+    s32 state;
 };
 
 struct Gamepad

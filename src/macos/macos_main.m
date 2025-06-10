@@ -92,7 +92,7 @@ internal struct DEBUG_read_file_result DEBUG_platform_read_file(char *path)
     u8 *next_bytes_location = (u8 *)result.data;
     while (bytes_to_read)
     {
-        u32 bytes_read = read(file_handle, next_bytes_location, bytes_to_read);
+        s32 bytes_read = read(file_handle, next_bytes_location, bytes_to_read);
         if (bytes_read == -1)
         {
             free(result.data);
@@ -120,7 +120,7 @@ internal b32 DEBUG_platform_write_file(char *path, u32 size, void *data)
     u8 *next_bytes_location = (u8 *)data;
     while (bytes_to_read)
     {
-        u32 bytes_read = write(file_handle, next_bytes_location, bytes_to_read);
+        s32 bytes_read = write(file_handle, next_bytes_location, bytes_to_read);
         if (bytes_read == -1)
         {
             close(file_handle);
@@ -154,6 +154,9 @@ macos_process_gamepad_button(struct G_GamepadButtonState *prev_state,
 
 int main(int argc, const char *argv[])
 {
+    UNUSED(argc);
+    UNUSED(argv);
+
     NSApplication *app = [NSApplication sharedApplication];
     [app setActivationPolicy:NSApplicationActivationPolicyRegular];
     [app activateIgnoringOtherApps:YES];
@@ -361,17 +364,17 @@ int main(int argc, const char *argv[])
 
         // Audio
         // write to circular buffer
-        s32 latency_sample_count = audio_output.sample_rate_khz / 15;
+        u32 latency_sample_count = audio_output.sample_rate_khz / 15;
 
-        s32 target_queue_bytes =
+        u32 target_queue_bytes =
             latency_sample_count * audio_output.bytes_per_sample;
         u32 target_cursor = (audio_output.play_cursor + target_queue_bytes) %
                             audio_output.buffer_size;
 
-        s32 byte_to_lock = (audio_output.running_sample_index *
+        u32 byte_to_lock = (audio_output.running_sample_index *
                             audio_output.bytes_per_sample) %
                            audio_output.buffer_size;
-        s32 bytes_to_write;
+        u32 bytes_to_write;
 
         if (byte_to_lock > target_cursor)
         {
@@ -465,6 +468,8 @@ internal void macos_buffer_resize(struct G_BackBuffer *buffer, int width,
 internal void macos_device_input_callback(void *context, IOReturn result,
                                           void *sender, IOHIDValueRef value)
 {
+    UNUSED(sender);
+
     if (result != kIOReturnSuccess)
     {
         printf("Error device input callback:\n");
@@ -576,6 +581,8 @@ internal void macos_device_input_callback(void *context, IOReturn result,
 internal void macos_device_callback(void *context, IOReturn result,
                                     void *sender, IOHIDDeviceRef device)
 {
+    UNUSED(sender);
+
     if (result != kIOReturnSuccess)
     {
         return;
@@ -697,6 +704,10 @@ internal OSStatus macos_audio_render_callback(
     const struct AudioTimeStamp *in_timestamp, unsigned int in_bus_number,
     unsigned int in_number_frames, struct AudioBufferList *io_data)
 {
+    UNUSED(io_action_flags);
+    UNUSED(in_timestamp);
+    UNUSED(in_bus_number);
+
     // Read from circular buffer
     struct Macos_AudioOutput *audio_output =
         (struct Macos_AudioOutput *)int_ref_con;
@@ -810,7 +821,7 @@ internal void macos_audio_fill_buffer(struct Macos_AudioOutput *audio_output,
     u32 region_1_sample_count = region_1_size / audio_output->bytes_per_sample;
     s16 *sample_out           = (s16 *)region_1;
 
-    for (int i = 0; i < region_1_sample_count; i++)
+    for (u32 i = 0; i < region_1_sample_count; i++)
     {
         *sample_out++ = *audio_buffer->samples++;
         *sample_out++ = *audio_buffer->samples++;
@@ -821,7 +832,7 @@ internal void macos_audio_fill_buffer(struct Macos_AudioOutput *audio_output,
     u32 region_2_sample_count = region_2_size / audio_output->bytes_per_sample;
     sample_out                = (s16 *)region_2;
 
-    for (int i = 0; i < region_2_sample_count; i++)
+    for (u32 i = 0; i < region_2_sample_count; i++)
     {
         *sample_out++ = *audio_buffer->samples++;
         *sample_out++ = *audio_buffer->samples++;
