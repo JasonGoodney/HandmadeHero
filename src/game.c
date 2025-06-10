@@ -1,13 +1,6 @@
 #include "game.h"
 #include <math.h>
 
-internal u32 safe_truncate_uint64(u64 value)
-{
-    ASSERT(value <= 0xFFFFFFFF);
-    u32 result = (u32)value;
-    return (result);
-}
-
 // TODO: handle endianesss for pixel buffer based on OS
 void game_update_and_render(struct G_Memory *memory,
                             struct G_BackBuffer *buffer,

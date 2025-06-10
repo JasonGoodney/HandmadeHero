@@ -42,7 +42,12 @@ typedef double f64;
 
 #define UNUSED(x) (void)(x)
 
-internal u32 safe_truncate_uint64(u64 value);
+internal inline u32 safe_truncate_uint64(u64 value)
+{
+    ASSERT(value <= 0xFFFFFFFF);
+    u32 result = (u32)value;
+    return (result);
+}
 
 #define KILOBYTES(value) ((value) * 1024LL)
 #define MEGABYTES(value) (KILOBYTES(value) * 1024LL)

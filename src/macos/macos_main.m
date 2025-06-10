@@ -12,6 +12,7 @@
 
 #include <math.h>
 #include <stdlib.h>
+#include <sys/_types/_ssize_t.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 
@@ -92,7 +93,8 @@ internal struct DEBUG_read_file_result DEBUG_platform_read_file(char *path)
     u8 *next_bytes_location = (u8 *)result.data;
     while (bytes_to_read)
     {
-        s32 bytes_read = read(file_handle, next_bytes_location, bytes_to_read);
+        ssize_t bytes_read =
+            read(file_handle, next_bytes_location, bytes_to_read);
         if (bytes_read == -1)
         {
             free(result.data);
@@ -120,7 +122,8 @@ internal b32 DEBUG_platform_write_file(char *path, u32 size, void *data)
     u8 *next_bytes_location = (u8 *)data;
     while (bytes_to_read)
     {
-        s32 bytes_read = write(file_handle, next_bytes_location, bytes_to_read);
+        ssize_t bytes_read =
+            write(file_handle, next_bytes_location, bytes_to_read);
         if (bytes_read == -1)
         {
             close(file_handle);
