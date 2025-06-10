@@ -232,7 +232,7 @@ int main(int argc, const char *argv[])
     windowDelegate.input        = curr_input;
 
     RUNNING = true;
-    struct mach_timebase_info timebase_info;
+    mach_timebase_info_data_t timebase_info;
     mach_timebase_info(&timebase_info);
     u64 last_clock_tick = mach_absolute_time();
 
@@ -407,10 +407,7 @@ int main(int argc, const char *argv[])
             elapsed_clock_tick * timebase_info.numer / timebase_info.denom;
         f32 elapsed_time_s = (f32)elapsed_time_ns * 1.0E-9;
         f32 fps            = 1.f / elapsed_time_s;
-
-#if 0
         NSLog(@"frames/second %.02ffps", fps);
-#endif
         last_clock_tick = end_clock_tick;
     }
 

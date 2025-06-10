@@ -14,19 +14,21 @@ void game_update_and_render(struct G_Memory *memory,
                             struct G_Input *input)
 {
     ASSERT(sizeof(struct G_State) <= memory->permenant_size);
-#if HANDMADE_INTERNAL
-    struct DEBUG_read_file_result result = DEBUG_platform_read_file(__FILE__);
-    if (result.data)
-    {
 
-        DEBUG_platform_write_file("test.out", result.size, result.data);
-        DEBUG_platform_free_file_data(result.data);
-    }
-#endif
     struct G_State *game_state = (struct G_State *)memory;
 
     if (!memory->is_initialized)
     {
+#if HANDMADE_INTERNAL
+        struct DEBUG_read_file_result result =
+            DEBUG_platform_read_file(__FILE__);
+        if (result.data)
+        {
+
+            DEBUG_platform_write_file("test.out", result.size, result.data);
+            DEBUG_platform_free_file_data(result.data);
+        }
+#endif
         game_state->frequency_hz = 256;
         game_state->box.width    = 50;
         game_state->box.height   = 50;

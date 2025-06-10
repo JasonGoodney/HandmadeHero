@@ -1,13 +1,5 @@
 #!/bin/bash
 
-CXX="clang"
-
-CXX_FLAGS="-g -Wall"
-
-OSX_LD_FLAGS="-framework AppKit 
-              -framework IOKit
-              -framework AudioToolbox"
-
 # Flags
 CLEAN=''
 DEBUG=''
@@ -33,10 +25,24 @@ if [ "${CLEAN}" ]; then
 fi
 
 # Build
+CXX="clang"
+
+CXX_FLAGS="-g
+           -Werror
+           -Wall"
+
+OSX_LD_FLAGS="-framework AppKit
+              -framework IOKit
+              -framework AudioToolbox"
+
+D_FLAGS="-DHANDMADE_MAC=1
+         -DHANDMADE_SLOW=1
+         -DHANDMADE_INTERNAL=1"
+
 echo "Building Handmade Hero"
 mkdir -p ./build/bin/macos
 pushd ./build/bin/macos
-if ! $CXX $CXX_FLAGS -DHANDMADE_MAC=1 -DHANDMADE_SLOW=1 -DHANDMADE_INTERNAL=1 $OSX_LD_FLAGS -o handmade ../../../src/macos/macos_main.m; then
+if ! $CXX $CXX_FLAGS $D_FLAGS $OSX_LD_FLAGS -o handmade ../../../src/macos/macos_main.m; then
     exit 1
 fi
 popd

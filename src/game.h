@@ -34,7 +34,7 @@ typedef double f64;
 #define ASSERT(Expression)                                                     \
     if (!(Expression))                                                         \
     {                                                                          \
-        *(int *)0 = 0;                                                         \
+        abort();                                                               \
     }
 #else
 #define ASSERT(Expression)
