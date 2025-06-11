@@ -220,14 +220,14 @@ int main(int argc, const char *argv[])
 #endif
 
     struct G_Memory memory = {0};
-    memory.permenant_size  = MEGABYTES(64);
+    memory.permanent_size  = MEGABYTES(64);
     memory.transient_size  = GIGABYTES(2);
-    memory.permenant =
-        mmap(base_address, (u64)(memory.permenant_size + memory.transient_size),
+    memory.permanent =
+        mmap(base_address, (u64)(memory.permanent_size + memory.transient_size),
              PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
-    memory.transient = ((u8 *)memory.permenant + memory.permenant_size);
+    memory.transient = ((u8 *)memory.permanent + memory.permanent_size);
 
-    if (!samples && !memory.permenant && !memory.transient)
+    if (!samples && !memory.permanent && !memory.transient)
     {
         NSLog(@"Error setting up memory");
     }

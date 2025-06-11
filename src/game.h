@@ -67,6 +67,7 @@ struct DeviceUsage
 
 struct Gamepad
 {
+    b32 is_initialized;
     struct DeviceUsage face_top, face_bottom, face_left, face_right;
     struct DeviceUsage dpad_x, dpad_y;
     struct DeviceUsage should_left, should_right;
@@ -146,8 +147,8 @@ struct G_Memory
 {
     b32 is_initialized;
 
-    u64 permenant_size;
-    void *permenant;
+    u64 permanent_size;
+    void *permanent;
 
     u64 transient_size;
     void *transient;

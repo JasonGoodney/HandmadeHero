@@ -7,9 +7,9 @@ void game_update_and_render(struct G_Memory *memory,
                             struct G_AudioBuffer *audio_buffer,
                             struct G_Input *input)
 {
-    ASSERT(sizeof(struct G_State) <= memory->permenant_size);
+    ASSERT(sizeof(struct G_State) <= memory->permanent_size);
 
-    struct G_State *game_state = (struct G_State *)memory->permenant;
+    struct G_State *game_state = (struct G_State *)memory->permanent;
 
     if (!memory->is_initialized)
     {
