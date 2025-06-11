@@ -15,7 +15,16 @@ From the series spawned the recent Handmade movement we us developers favor rein
 - Unofficial Mac Platform Layer: https://www.youtube.com/playlist?list=PLQOu9z2IsoWnvByDqg_CmihZogT5sI3uM
 - Unofficial Linux Platform Layer: https://davidgow.net/handmadepenguin/default.html
 
+### Day 017 - Unified Keyboard and Gamepad Input
+### Day 016 - Compiler Switches
+- We enable -Wall for enhanced warnings
+- We enable -Werror to treat warnings as errors
+### Day 015 - Platform Independent Debug File I/O
 ### Day 014 - Platform Independent Game Memory
+In this lesson we allocate a shared pool of memory for the program to use. Using a memory pool has a few advantages here:
+    - Reduces failure rate of allocating memory.
+    - Simplifies the program by having a single allocation point.
+    - Improves performance. Calls to malloc and free are expensive.
 ### Day 013 - Platform Independent User Input
 ### Day 012 - Platform Independent Sound Output
 ### Day 011 - Basics of Platform API Design
