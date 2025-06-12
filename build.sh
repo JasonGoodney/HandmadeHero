@@ -28,7 +28,6 @@ fi
 CXX="clang"
 
 CXX_FLAGS="-g
-           -Werror
            -Wall
            -Wextra"
 

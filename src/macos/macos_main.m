@@ -13,6 +13,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <sys/_types/_ssize_t.h>
+#include <sys/_types/_useconds_t.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 
@@ -53,7 +54,7 @@ global struct G_AudioBuffer g_audio_buffer;
                             rect.size.height);
         game_update_and_render(self.memory, self.back_buffer, self.audio_buffer,
                                self.input);
-        macos_buffer_display(self.back_buffer, window);
+        macos_window_display(self.back_buffer, window);
     }
 }
 @end // HandmadeWindowDelegate
@@ -155,6 +156,14 @@ macos_process_gamepad_button(struct G_GamepadButtonState *prev_state,
         prev_state->ended_pressed == curr_state->ended_pressed ? 0 : 1;
 }
 
+internal f32 macos_get_milliseconds_elapsed(u64 start, u64 end,
+                                            mach_timebase_info_data_t *timebase)
+{
+    u64 time_ns = (end - start) * (timebase->numer / timebase->denom);
+    f32 result  = (f32)time_ns * 1.0E-6;
+    return result;
+}
+
 int main(int argc, const char *argv[])
 {
     UNUSED(argc);
@@ -198,6 +207,10 @@ int main(int argc, const char *argv[])
                                    g_back_buffer.width, g_back_buffer.height];
     [window setTitle:title];
 
+    u32 monitor_refresh_rate_hz = 60;
+    u32 game_refresh_rate_hz    = monitor_refresh_rate_hz / 2;
+    f32 target_ms_per_frame     = 1.0E3f / game_refresh_rate_hz;
+
     struct Gamepad mac_gamepad = {0};
     macos_device_register(&mac_gamepad);
 
@@ -238,8 +251,8 @@ int main(int argc, const char *argv[])
     windowDelegate.input        = curr_input;
 
     RUNNING = true;
-    mach_timebase_info_data_t timebase_info;
-    mach_timebase_info(&timebase_info);
+    mach_timebase_info_data_t timebase;
+    mach_timebase_info(&timebase);
     u64 last_clock_tick = mach_absolute_time();
 
     while (RUNNING)
@@ -397,24 +410,49 @@ int main(int argc, const char *argv[])
         g_audio_buffer.sample_count =
             bytes_to_write / audio_output.bytes_per_sample;
 
-        // Render
-
         game_update_and_render(&memory, &g_back_buffer, &g_audio_buffer,
                                curr_input);
-        macos_buffer_display(&g_back_buffer, window);
 
+        // call after game update
         macos_audio_fill_buffer(&audio_output, &g_audio_buffer, byte_to_lock,
                                 bytes_to_write);
 
+        // sleep until target ms per frame
+        // TODO: change to nanoseconds
+        f32 work_ms = macos_get_milliseconds_elapsed(
+            last_clock_tick, mach_absolute_time(), &timebase);
+        f32 work_ms_for_frame = work_ms;
+        if (work_ms_for_frame < target_ms_per_frame)
+        {
+            f32 fudge_factor_ms = 3.0f;
+            f32 sleep_ms =
+                target_ms_per_frame - work_ms_for_frame - fudge_factor_ms;
+            if (sleep_ms > 0)
+            {
+                usleep((useconds_t)(sleep_ms * 1000));
+            }
+
+            while (work_ms_for_frame < target_ms_per_frame)
+            {
+                work_ms_for_frame = macos_get_milliseconds_elapsed(
+                    last_clock_tick, mach_absolute_time(), &timebase);
+            }
+        }
+        else
+        {
+            // TODO: handle missing frame rate
+            // TODO: Logging
+        }
+
+        // Render
+        macos_window_display(&g_back_buffer, window);
+
         // Time Profiling
-        u64 end_clock_tick     = mach_absolute_time();
-        u64 elapsed_clock_tick = end_clock_tick - last_clock_tick;
-        u64 elapsed_time_ns =
-            elapsed_clock_tick * timebase_info.numer / timebase_info.denom;
-        f32 elapsed_time_s = (f32)elapsed_time_ns * 1.0E-9;
-        f32 fps            = 1.f / elapsed_time_s;
+        f32 elapsed_time_ms = macos_get_milliseconds_elapsed(
+            last_clock_tick, mach_absolute_time(), &timebase);
+        f32 fps = 1000.f / elapsed_time_ms;
         NSLog(@"frames/second %.02ffps", fps);
-        last_clock_tick = end_clock_tick;
+        last_clock_tick = mach_absolute_time();
     }
 
     printf("Handmade Hero finished running.\n");
@@ -427,7 +465,7 @@ internal CGRect macos_get_window_rect(const NSWindow *window)
     return window.contentView.bounds;
 }
 
-internal void macos_buffer_display(struct G_BackBuffer *buffer,
+internal void macos_window_display(struct G_BackBuffer *buffer,
                                    const NSWindow *window)
 {
 
@@ -718,7 +756,8 @@ internal OSStatus macos_audio_render_callback(
     u32 bytes_to_output = in_number_frames * audio_output->bytes_per_sample;
 
     // Region 1 is the number of bytes up to the end of the buffer. If the
-    // frames to be rendered causes us to wrap, the remained goes into region 2.
+    // frames to be rendered causes us to wrap, the remained goes into
+    // region 2.
     u32 region_1_size = bytes_to_output;
     u32 region_2_size = 0;
 
@@ -757,7 +796,8 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
     audio_output->data        = malloc(audio_output->buffer_size);
     audio_output->play_cursor = 0;
 
-    // Configure the search parameters to find the default playback output unit
+    // Configure the search parameters to find the default playback output
+    // unit
     AudioComponentDescription output_desc;
     output_desc.componentType         = kAudioUnitType_Output;
     output_desc.componentSubType      = kAudioUnitSubType_DefaultOutput;
