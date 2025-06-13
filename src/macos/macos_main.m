@@ -450,8 +450,8 @@ int main(int argc, const char *argv[])
         // Time Profiling
         f32 elapsed_time_ms = macos_get_milliseconds_elapsed(
             last_clock_tick, mach_absolute_time(), &timebase);
-        f32 fps = 1000.f / elapsed_time_ms;
-        NSLog(@"frames/second %.02ffps", fps);
+        NSLog(@"ms/f %.02f, fps %.02f", elapsed_time_ms,
+              1000.f / elapsed_time_ms);
         last_clock_tick = mach_absolute_time();
     }
 
