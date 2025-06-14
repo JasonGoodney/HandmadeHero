@@ -7,9 +7,10 @@
 #include <mach/mach.h>
 #include <mach/mach_time.h>
 
-#include "../game.c"
+#include "../game.h"
 #include "macos.h"
 
+#include <dlfcn.h>
 #include <math.h>
 #include <stdlib.h>
 #include <sys/_types/_ssize_t.h>
@@ -25,6 +26,7 @@ global struct G_AudioBuffer g_audio_buffer;
 
 @interface HandmadeWindowDelegate : NSObject <NSWindowDelegate>
 
+@property(nonatomic, assign) struct lib_game *game;
 @property(nonatomic, assign) struct G_Memory *memory;
 @property(nonatomic, assign) struct G_BackBuffer *back_buffer;
 @property(nonatomic, assign) struct G_AudioBuffer *audio_buffer;
@@ -52,16 +54,17 @@ global struct G_AudioBuffer g_audio_buffer;
     {
         macos_buffer_resize(self.back_buffer, rect.size.width,
                             rect.size.height);
-        game_update_and_render(self.memory, self.back_buffer, self.audio_buffer,
-                               self.input);
+        self.game->update_and_render(self.memory, self.back_buffer,
+                                     self.audio_buffer, self.input);
         macos_window_display(self.back_buffer, window);
     }
 }
 @end // HandmadeWindowDelegate
 
-internal struct DEBUG_read_file_result DEBUG_platform_read_file(char *path)
+#if HANDMADE_INTERNAL
+DEBUG_PLATFORM_READ_FILE(debug_platform_read_file)
 {
-    struct DEBUG_read_file_result result = {0};
+    struct debug_read_file_result result = {0};
 
     // open/create file
     int file_handle = open(path, O_RDONLY);
@@ -115,7 +118,7 @@ internal struct DEBUG_read_file_result DEBUG_platform_read_file(char *path)
     return result;
 }
 
-internal b32 DEBUG_platform_write_file(char *path, u32 size, void *data)
+DEBUG_PLATFORM_WRITE_FILE(DEBUG_platform_write_file)
 {
     int file_handle =
         open(path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
@@ -128,23 +131,24 @@ internal b32 DEBUG_platform_write_file(char *path, u32 size, void *data)
         if (bytes_read == -1)
         {
             close(file_handle);
-            return 0;
+            return true;
         }
 
         bytes_to_read -= bytes_read;
         next_bytes_location += bytes_read;
     }
 
-    return 1;
+    return false;
 }
 
-internal void DEBUG_platform_free_file_data(void *data)
+DEBUG_PLATFORM_FREE_FILE(debug_platform_free_file)
 {
     if (data)
     {
         free(data);
     }
 }
+#endif
 
 internal void
 macos_process_gamepad_button(struct G_GamepadButtonState *prev_state,
@@ -162,6 +166,25 @@ internal f32 macos_get_milliseconds_elapsed(u64 start, u64 end,
     u64 time_ns = (end - start) * (timebase->numer / timebase->denom);
     f32 result  = (f32)time_ns * 1.0E-6;
     return result;
+}
+
+internal struct lib_game macos_load_game_code()
+{
+    struct lib_game game = {0};
+    game.lib_handle      = dlopen("libgame.dylib", RTLD_LAZY);
+    if (game.lib_handle)
+    {
+        game.update_and_render = (game_update_and_render_t *)dlsym(
+            game.lib_handle, "game_update_and_render");
+        game.is_valid = game.update_and_render != NULL;
+    }
+
+    if (!game.is_valid)
+    {
+        game.update_and_render = stub_game_update_and_render;
+    }
+
+    return game;
 }
 
 int main(int argc, const char *argv[])
@@ -245,6 +268,9 @@ int main(int argc, const char *argv[])
         NSLog(@"Error setting up memory");
     }
 
+    struct lib_game game = macos_load_game_code();
+
+    windowDelegate.game         = &game;
     windowDelegate.memory       = &memory;
     windowDelegate.back_buffer  = &g_back_buffer;
     windowDelegate.audio_buffer = &g_audio_buffer;
@@ -410,7 +436,7 @@ int main(int argc, const char *argv[])
         g_audio_buffer.sample_count =
             bytes_to_write / audio_output.bytes_per_sample;
 
-        game_update_and_render(&memory, &g_back_buffer, &g_audio_buffer,
+        game.update_and_render(&memory, &g_back_buffer, &g_audio_buffer,
                                curr_input);
 
         // call after game update

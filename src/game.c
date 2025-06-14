@@ -1,11 +1,8 @@
 #include "game.h"
 #include <math.h>
 
-// TODO: handle endianesss for pixel buffer based on OS
-void game_update_and_render(struct G_Memory *memory,
-                            struct G_BackBuffer *buffer,
-                            struct G_AudioBuffer *audio_buffer,
-                            struct G_Input *input)
+// TODO: handle endianess for pixel buffer based on OS
+GAME_UPDATE_AND_RENDER(update_and_render)
 {
     ASSERT(sizeof(struct G_State) <= memory->permanent_size);
 
@@ -14,13 +11,14 @@ void game_update_and_render(struct G_Memory *memory,
     if (!memory->is_initialized)
     {
 #if HANDMADE_INTERNAL
-        struct DEBUG_read_file_result result =
-            DEBUG_platform_read_file(__FILE__);
+        struct debug_read_file_result result =
+            memory->DEBUG_platform_read_file(__FILE__);
         if (result.data)
         {
 
-            DEBUG_platform_write_file("test.out", result.size, result.data);
-            DEBUG_platform_free_file_data(result.data);
+            memory->DEBUG_platform_write_file("test.out", result.size,
+                                              result.data);
+            memory->DEBUG_platform_free_file(result.data);
         }
 #endif
         game_state->frequency_hz = 256;

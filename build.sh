@@ -25,11 +25,12 @@ if [ "${CLEAN}" ]; then
 fi
 
 # Build
-CXX="clang"
+CC="clang"
 
-CXX_FLAGS="-g
-           -Wall
-           -Wextra"
+CFLAGS="-g
+        -std=c99
+        -W4
+        -Wextra"
 
 OSX_LD_FLAGS="-framework AppKit
               -framework IOKit
@@ -42,17 +43,23 @@ D_FLAGS="-DHANDMADE_MAC=1
 echo "Building Handmade Hero"
 mkdir -p ./build/bin/macos
 pushd ./build/bin/macos
-if ! $CXX $CXX_FLAGS $D_FLAGS $OSX_LD_FLAGS -o handmade ../../../src/macos/macos_main.m; then
+
+SRC_DIR="../../../src/"
+if ! $CC $CFLAGS $D_FLAGS $OSX_LD_FLAGS -fPIC -shared -o libgame.dylib "$SRC_DIR/game.c" ; then
+    exit 1
+fi
+
+if ! $CC $CFLAGS $D_FLAGS $OSX_LD_FLAGS libgame.dylib "$SRC_DIR/macos/macos_main.m" ; then
     exit 1
 fi
 popd
 
 # Debug / Run
 if [ "${DEBUG}" ]; then
-    if [ "${CXX}" == "clang" ]; then
+    if [ "${CC}" == "clang" ]; then
         lldb ./build/bin/macos/handmade
         exit 1
-    elif [ "${CXX}" == "gcc" ]; then
+    elif [ "${CC}" == "gcc" ]; then
         if [ "$(uname)" == "Darwin" ] && [ "$(uname -p)" == "arm" ]; then
             echo gdb not supported on $(sysctl -n machdep.cpu.brand_string)
             exit 1
