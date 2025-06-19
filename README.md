@@ -15,6 +15,7 @@ From the series spawned the recent Handmade movement we us developers favor rein
 - Unofficial Mac Platform Layer: https://www.youtube.com/playlist?list=PLQOu9z2IsoWnvByDqg_CmihZogT5sI3uM
 - Unofficial Linux Platform Layer: https://davidgow.net/handmadepenguin/default.html
 
+### Day 022 - Instantaneous Live Code Editing
 ### Day 021 - Loading Game Code Dynamically
 ### Day 020 - (TODO) Debugging Audio Synchronization
 ### Day 019 - (TODO) Improving Audio Synchronization
