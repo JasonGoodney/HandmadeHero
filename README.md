@@ -15,6 +15,9 @@ From the series spawned the recent Handmade movement we us developers favor rein
 - Unofficial Mac Platform Layer: https://www.youtube.com/playlist?list=PLQOu9z2IsoWnvByDqg_CmihZogT5sI3uM
 - Unofficial Linux Platform Layer: https://davidgow.net/handmadepenguin/default.html
 
+### Day 021 - Loading Game Code Dynamically
+### Day 020 - (TODO) Debugging Audio Synchronization
+### Day 019 - (TODO) Improving Audio Synchronization
 ### Day 018 - Enforcing a Video Frame Rate
 At this stage our game renders at the maximum frame rate possible. This is wasteful. The CPU is doing a ton of extra work to display updates to the user at a rate that is far to fast for them to process. Instead what we want to do is use a strict frame rate. This can be accomplished by telling the thread to sleep after for the difference between the target fps and the time it took to complete all the work in a frame.
 ### Day 017 - Unified Keyboard and Gamepad Input
