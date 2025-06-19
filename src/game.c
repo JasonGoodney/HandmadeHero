@@ -41,19 +41,19 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
 
     if (gamepad.dpad_top.ended_pressed)
     {
-        game_state->box.y -= 1;
+        game_state->box.y -= 20;
     }
     else if (gamepad.dpad_bottom.ended_pressed)
     {
-        game_state->box.y += 1;
+        game_state->box.y += 20;
     }
     else if (gamepad.dpad_left.ended_pressed)
     {
-        game_state->box.x -= 1;
+        game_state->box.x -= 20;
     }
     else if (gamepad.dpad_right.ended_pressed)
     {
-        game_state->box.x += 1;
+        game_state->box.x += 20;
     }
 
     // Pixels

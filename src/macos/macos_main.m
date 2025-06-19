@@ -239,7 +239,6 @@ internal struct lib_game macos_load_game_code()
 
     game.last_modification_time = macos_get_last_file_write(lib_path);
     copy(lib_path, tmp_path);
-    copy("libgame.dylib.dSYM", "tmp_libgame.dylib.dSYM");
     game.lib_handle = dlopen(tmp_path, RTLD_NOW);
 
     if (game.lib_handle)
@@ -375,15 +374,15 @@ int main()
 
     while (RUNNING)
     {
-        // struct timespec mtime = macos_get_last_file_write("libgame.dylib");
-        // if (mtime.tv_sec != 0 &&
-        //     mtime.tv_sec != game.last_modification_time.tv_sec &&
-        //     mtime.tv_nsec != game.last_modification_time.tv_nsec)
-        //{
-        //     game.last_modification_time = mtime;
-        //     macos_unload_game_code(&game);
-        //     game = macos_load_game_code();
-        // }
+        struct timespec mtime = macos_get_last_file_write("libgame.dylib");
+        if (mtime.tv_sec != 0 &&
+            mtime.tv_sec != game.last_modification_time.tv_sec &&
+            mtime.tv_nsec != game.last_modification_time.tv_nsec)
+        {
+            macos_unload_game_code(&game);
+            game                        = macos_load_game_code();
+            game.last_modification_time = mtime;
+        }
 
         // Event handling
         NSEvent *event;
