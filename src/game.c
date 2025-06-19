@@ -2,7 +2,7 @@
 #include <math.h>
 
 // TODO: handle endianess for pixel buffer based on OS
-GAME_UPDATE_AND_RENDER(update_and_render)
+GAME_UPDATE_AND_RENDER(game_update_and_render)
 {
     ASSERT(sizeof(struct G_State) <= memory->permanent_size);
 
@@ -12,13 +12,13 @@ GAME_UPDATE_AND_RENDER(update_and_render)
     {
 #if HANDMADE_INTERNAL
         struct debug_read_file_result result =
-            memory->DEBUG_platform_read_file(__FILE__);
+            memory->debug_platform_read_file(__FILE__);
         if (result.data)
         {
 
-            memory->DEBUG_platform_write_file("test.out", result.size,
+            memory->debug_platform_write_file("test.out", result.size,
                                               result.data);
-            memory->DEBUG_platform_free_file(result.data);
+            memory->debug_platform_free_file(result.data);
         }
 #endif
         game_state->frequency_hz = 256;

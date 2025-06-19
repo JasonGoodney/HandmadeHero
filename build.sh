@@ -19,6 +19,8 @@ done
 if [ "${CLEAN}" ]; then
     echo "Removing /build"
     rm -rf ./build
+    rm -rf *.dylib
+    rm -rf *.dSYM
     if [ ! "${RUN}" ] && [ ! "${DEBUG}" ]; then
         exit 1
     fi
@@ -29,8 +31,10 @@ CC="clang"
 
 CFLAGS="-g
         -std=c99
-        -W4
-        -Wextra"
+        -Wall
+        -Wextra
+        -Wno-unused-parameter
+        -Wno-null-dereference"
 
 OSX_LD_FLAGS="-framework AppKit
               -framework IOKit
@@ -42,14 +46,16 @@ D_FLAGS="-DHANDMADE_MAC=1
 
 echo "Building Handmade Hero"
 mkdir -p ./build/bin/macos
-pushd ./build/bin/macos
-
 SRC_DIR="../../../src/"
-if ! $CC $CFLAGS $D_FLAGS $OSX_LD_FLAGS -fPIC -shared -o libgame.dylib "$SRC_DIR/game.c" ; then
+
+pushd ./build/bin/
+if ! $CC $CFLAGS $D_FLAGS $OSX_LD_FLAGS -fPIC -shared -o libgame.dylib "../../src/game.c" ; then
     exit 1
 fi
+popd
 
-if ! $CC $CFLAGS $D_FLAGS $OSX_LD_FLAGS libgame.dylib "$SRC_DIR/macos/macos_main.m" ; then
+pushd ./build/bin/macos
+if ! $CC $CFLAGS $D_FLAGS $OSX_LD_FLAGS -o handmade ../libgame.dylib "../../../src/macos/macos_main.m" ; then
     exit 1
 fi
 popd
@@ -57,14 +63,18 @@ popd
 # Debug / Run
 if [ "${DEBUG}" ]; then
     if [ "${CC}" == "clang" ]; then
-        lldb ./build/bin/macos/handmade
+        pushd ./build/bin/
+        lldb ./macos/handmade
+        popd
         exit 1
     elif [ "${CC}" == "gcc" ]; then
         if [ "$(uname)" == "Darwin" ] && [ "$(uname -p)" == "arm" ]; then
             echo gdb not supported on $(sysctl -n machdep.cpu.brand_string)
             exit 1
         fi
-        gdb ./build/bin/macos/handmade
+        pushd ./build/bin/
+        gdb ./macos/handmade
+        popd
         exit 1
     fi
 fi
@@ -76,5 +86,7 @@ fi
 
 if [ "${RUN}" ]; then
     echo "Running Handmade Hero"
-    ./build/bin/macos/handmade
+    pushd ./build/bin/
+    ./macos/handmade
+    popd
 fi

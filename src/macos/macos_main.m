@@ -12,11 +12,13 @@
 
 #include <dlfcn.h>
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/_types/_ssize_t.h>
 #include <sys/_types/_useconds_t.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <time.h>
 
 global const u8 BYTES_PER_PIXEL = 4;
 
@@ -118,7 +120,7 @@ DEBUG_PLATFORM_READ_FILE(debug_platform_read_file)
     return result;
 }
 
-DEBUG_PLATFORM_WRITE_FILE(DEBUG_platform_write_file)
+DEBUG_PLATFORM_WRITE_FILE(debug_platform_write_file)
 {
     int file_handle =
         open(path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
@@ -168,30 +170,116 @@ internal f32 macos_get_milliseconds_elapsed(u64 start, u64 end,
     return result;
 }
 
+#define ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
+
+void copy(char *src, char *dst)
+{
+    u8 buffer[512];
+
+    FILE *fsrc = fopen(src, "rb");
+    if (!fsrc)
+    {
+        printf("fopen src error: %s\n", src);
+        exit(EXIT_FAILURE);
+    }
+
+    FILE *fdst = fopen(dst, "wb");
+    if (!fdst)
+    {
+        printf("fopen dst error: %s", dst);
+        exit(EXIT_FAILURE);
+    }
+
+    size_t bytes;
+    while ((bytes = fread(buffer, 1, sizeof(buffer), fsrc)) > 0)
+    {
+        fwrite(buffer, 1, bytes, fdst);
+    }
+
+    fclose(fsrc);
+    fclose(fdst);
+
+    printf("finished copy from %s to %s\n", src, dst);
+}
+
+internal struct timespec macos_get_last_file_write(char *path)
+{
+    struct timespec result = {0};
+
+    // open/create file
+    int file_handle = open(path, O_RDONLY);
+    if (file_handle == -1)
+    {
+        printf("unable to open %s\n", path);
+        exit(EXIT_FAILURE);
+    }
+
+    // get file size
+    struct stat file_status;
+    if (fstat(file_handle, &file_status) == -1)
+    {
+        printf("unable to get file status %s\n", path);
+        close(file_handle);
+        return result;
+    }
+
+    return file_status.st_mtimespec;
+}
+
 internal struct lib_game macos_load_game_code()
 {
+    char cwd[256];
+    getcwd(cwd, 265);
+    printf("cwd %s\n", cwd);
+
+    char *lib_path = "libgame.dylib";
+    char *tmp_path = "tmp_libgame.dylib";
+
     struct lib_game game = {0};
-    game.lib_handle      = dlopen("libgame.dylib", RTLD_LAZY);
+
+    game.last_modification_time = macos_get_last_file_write(lib_path);
+    copy(lib_path, tmp_path);
+    copy("libgame.dylib.dSYM", "tmp_libgame.dylib.dSYM");
+    game.lib_handle = dlopen(tmp_path, RTLD_NOW);
+
     if (game.lib_handle)
     {
-        game.update_and_render = (game_update_and_render_t *)dlsym(
+        game.update_and_render = (game_update_and_render_f *)dlsym(
             game.lib_handle, "game_update_and_render");
+
+        if (!game.update_and_render)
+        {
+            printf("failed to locate symbol %s\n", "game_update_and_render");
+            exit(EXIT_FAILURE);
+        }
         game.is_valid = game.update_and_render != NULL;
+    }
+    else
+    {
+        printf("failed to open dylib at %s\n", tmp_path);
+        exit(EXIT_FAILURE);
     }
 
     if (!game.is_valid)
     {
         game.update_and_render = stub_game_update_and_render;
     }
-
+    printf("finished loading libgame.dylib\n");
     return game;
 }
 
-int main(int argc, const char *argv[])
+internal void macos_unload_game_code(struct lib_game *game)
 {
-    UNUSED(argc);
-    UNUSED(argv);
+    if (game->lib_handle)
+    {
+        dlclose(game->lib_handle);
+        game->lib_handle = 0;
+    }
 
+    game->update_and_render = stub_game_update_and_render;
+}
+int main()
+{
     NSApplication *app = [NSApplication sharedApplication];
     [app setActivationPolicy:NSApplicationActivationPolicyRegular];
     [app activateIgnoringOtherApps:YES];
@@ -267,9 +355,13 @@ int main(int argc, const char *argv[])
     {
         NSLog(@"Error setting up memory");
     }
+#if HANDMADE_INTERNAL
+    memory.debug_platform_free_file  = debug_platform_free_file;
+    memory.debug_platform_read_file  = debug_platform_read_file;
+    memory.debug_platform_write_file = debug_platform_write_file;
+#endif
 
-    struct lib_game game = macos_load_game_code();
-
+    struct lib_game game        = macos_load_game_code();
     windowDelegate.game         = &game;
     windowDelegate.memory       = &memory;
     windowDelegate.back_buffer  = &g_back_buffer;
@@ -283,6 +375,16 @@ int main(int argc, const char *argv[])
 
     while (RUNNING)
     {
+        // struct timespec mtime = macos_get_last_file_write("libgame.dylib");
+        // if (mtime.tv_sec != 0 &&
+        //     mtime.tv_sec != game.last_modification_time.tv_sec &&
+        //     mtime.tv_nsec != game.last_modification_time.tv_nsec)
+        //{
+        //     game.last_modification_time = mtime;
+        //     macos_unload_game_code(&game);
+        //     game = macos_load_game_code();
+        // }
+
         // Event handling
         NSEvent *event;
         do
@@ -473,11 +575,14 @@ int main(int argc, const char *argv[])
         // Render
         macos_window_display(&g_back_buffer, window);
 
+#if 1
         // Time Profiling
         f32 elapsed_time_ms = macos_get_milliseconds_elapsed(
             last_clock_tick, mach_absolute_time(), &timebase);
+
         NSLog(@"ms/f %.02f, fps %.02f", elapsed_time_ms,
               1000.f / elapsed_time_ms);
+#endif
         last_clock_tick = mach_absolute_time();
     }
 

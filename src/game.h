@@ -12,11 +12,13 @@
 //  1 - Slow code welcome
 //
 
+#include <stdint.h>
+#include <stdio.h>
+#include <time.h>
+
 #define internal static
 #define local static
 #define global static
-
-#include <stdint.h>
 
 typedef uint8_t u8;
 typedef uint16_t u16;
@@ -30,8 +32,8 @@ typedef s32 b32;
 typedef float f32;
 typedef double f64;
 
-#define true 0
-#define false 1
+#define false 0
+#define true 1
 
 #if HANDMADE_SLOW
 #define ASSERT(Expression)                                                     \
@@ -96,15 +98,15 @@ struct debug_read_file_result
 };
 
 #define DEBUG_PLATFORM_FREE_FILE(func_name) void func_name(void *data)
-typedef DEBUG_PLATFORM_FREE_FILE(debug_platform_free_file_t);
+typedef DEBUG_PLATFORM_FREE_FILE(debug_platform_free_file_f);
 
 #define DEBUG_PLATFORM_READ_FILE(func_name)                                    \
     struct debug_read_file_result func_name(char *path)
-typedef DEBUG_PLATFORM_READ_FILE(debug_platform_read_file_t);
+typedef DEBUG_PLATFORM_READ_FILE(debug_platform_read_file_f);
 
 #define DEBUG_PLATFORM_WRITE_FILE(func_name)                                   \
     b32 func_name(char *path, u32 size, void *data)
-typedef DEBUG_PLATFORM_WRITE_FILE(debug_platform_write_file_t);
+typedef DEBUG_PLATFORM_WRITE_FILE(debug_platform_write_file_f);
 
 #endif
 
@@ -178,9 +180,9 @@ struct G_Memory
     void *transient;
 
 #if HANDMADE_INTERNAL
-    debug_platform_free_file_t *DEBUG_platform_free_file;
-    debug_platform_read_file_t *DEBUG_platform_read_file;
-    debug_platform_write_file_t *DEBUG_platform_write_file;
+    debug_platform_free_file_f *debug_platform_free_file;
+    debug_platform_read_file_f *debug_platform_read_file;
+    debug_platform_write_file_f *debug_platform_write_file;
 #endif
 };
 
@@ -194,14 +196,15 @@ struct G_State
 #define GAME_UPDATE_AND_RENDER(func_name)                                      \
     void func_name(struct G_Memory *memory, struct G_BackBuffer *buffer,       \
                    struct G_AudioBuffer *audio_buffer, struct G_Input *input)
-typedef GAME_UPDATE_AND_RENDER(game_update_and_render_t);
+typedef GAME_UPDATE_AND_RENDER(game_update_and_render_f);
 GAME_UPDATE_AND_RENDER(stub_game_update_and_render) {}
 
 struct lib_game
 {
     b32 is_valid;
     void *lib_handle;
-    game_update_and_render_t *update_and_render;
+    struct timespec last_modification_time;
+    game_update_and_render_f *update_and_render;
 };
 
 #endif // GAME_H
