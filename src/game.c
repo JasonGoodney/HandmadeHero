@@ -22,10 +22,15 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
         }
 #endif
         game_state->frequency_hz = 256;
-        game_state->box.width    = 50;
-        game_state->box.height   = 50;
-        game_state->box.x        = (RENDER_WIDTH / 2) - (50 / 2);
-        game_state->box.y        = (RENDER_HEIGHT / 2) - (50 / 2);
+        game_state->t_sine       = 0.0f;
+
+        game_state->box.width  = 50;
+        game_state->box.height = 50;
+        game_state->box.x      = (RENDER_WIDTH / 2) - (50 / 2);
+        game_state->box.y      = (RENDER_HEIGHT / 2) - (50 / 2);
+        game_state->player_x   = (RENDER_WIDTH / 2) - (10 / 2);
+        game_state->player_y   = (RENDER_HEIGHT / 2) - (10 / 2);
+        game_state->t_jump     = 0.0f;
 
         memory->is_initialized = 1;
     }
@@ -39,22 +44,39 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
         game_state->box.y = gamepad.end_y;
     }
 
+    s32 speed = 4;
     if (gamepad.dpad_top.ended_pressed)
     {
-        game_state->box.y -= 20;
+        game_state->box.y -= speed;
+        game_state->player_y -= speed;
     }
     else if (gamepad.dpad_bottom.ended_pressed)
     {
-        game_state->box.y += 20;
+        game_state->box.y += speed;
+        game_state->player_y += speed;
     }
     else if (gamepad.dpad_left.ended_pressed)
     {
-        game_state->box.x -= 20;
+        game_state->box.x -= speed;
+        game_state->player_x -= speed;
     }
     else if (gamepad.dpad_right.ended_pressed)
     {
-        game_state->box.x += 20;
+        game_state->box.x += speed;
+        game_state->player_x += speed;
     }
+
+    if (game_state->t_jump > 0)
+    {
+        game_state->player_y +=
+            (s32)(10.0f * sinf(PI_F32 * game_state->t_jump));
+    }
+
+    if (gamepad.face_bottom.ended_pressed)
+    {
+        game_state->t_jump = 2.0f;
+    }
+    game_state->t_jump -= 0.033f;
 
     // Pixels
     int size = game_state->box.width;
@@ -65,41 +87,51 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
         u32 *pixel = (u32 *)row;
         for (int x = 0; x < buffer->width; x += 1)
         {
-            u8 r = 0;
-            u8 g = 0;
-            u8 b = 0;
-            u8 a = 255;
-
-            if (x >= game_state->box.x && x <= game_state->box.x + size)
-            {
-                if (y >= game_state->box.y && y <= game_state->box.y + size)
-                {
-                    r = 255;
-                }
-            }
-
+            u8 r   = 0;
+            u8 g   = 0;
+            u8 b   = 0;
+            u8 a   = 255;
             *pixel = (r | g << 8 | b << 16 | a << 24);
             pixel += 1;
         }
         row += buffer->pitch;
     }
 
+    // Player
+    u8 *end_buffer = (u8 *)buffer->data + (buffer->pitch * buffer->height);
+    u32 color      = 0xFFFFFFFF;
+    for (int x = game_state->player_x; x < game_state->player_x + 10; x++)
+    {
+        u8 *pixel = (u8 *)buffer->data + (x * buffer->bytes_per_pixel) +
+                    (game_state->player_y * buffer->pitch);
+        for (int y = game_state->player_y; y < game_state->player_y + 10; y++)
+        {
+            *(u32 *)pixel = color;
+            if (pixel >= buffer->data && pixel < end_buffer)
+            {
+                pixel += buffer->pitch;
+            }
+        }
+    }
+
     // Audio
-    local f32 time_sine = 0.0f;
-    s32 volume          = 3000;
+    s32 volume = 3000;
     f32 wave_period =
         (f32)audio_buffer->sample_rate_khz / game_state->frequency_hz;
     s16 *sample_out = audio_buffer->samples;
 
     for (int i = 0; i < audio_buffer->sample_count; i++)
     {
-        s16 sample = sinf(time_sine) * volume;
-
+#if 0
+        s16 sample = sinf(game_state->t_sine) * volume;
+#else
+        s16 sample = 0;
+#endif
         *sample_out = sample;
         sample_out++;
         *sample_out = sample;
         sample_out++;
 
-        time_sine += (2.0f * PI_F32 * 1.0f) / (f32)wave_period;
+        game_state->t_sine += (2.0f * PI_F32 * 1.0f) / (f32)wave_period;
     }
 }

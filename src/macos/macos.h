@@ -18,11 +18,34 @@ struct Macos_AudioOutput
     u32 running_sample_index;
     size_t buffer_size;
     void *data;
+    AudioComponentInstance *audio_unit;
+};
+
+struct macos_recorded_input
+{
+    s32 input_count;
+    struct g_input *input_stream;
+};
+
+struct macos_state
+{
+    uint64_t memory_block_size;
+    void *memory_block;
+
+    void *replay_memory_block;
+    FILE *replay_file_handle;
+
+    s32 input_recording_index;
+    FILE *recording_handle;
+    b32 is_recording;
+
+    s32 input_playing_index;
+    FILE *playback_handle;
+    b32 is_playing_back;
 };
 
 // Audio
-internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
-                                 AudioComponentInstance audio_unit);
+internal void macos_audio_create(struct Macos_AudioOutput *audio_output);
 internal void macos_audio_fill_buffer(struct Macos_AudioOutput *audio_output,
                                       struct G_AudioBuffer *audio_buffer,
                                       s32 byte_to_lock, s32 bytes_to_write);

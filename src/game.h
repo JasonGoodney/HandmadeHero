@@ -116,6 +116,7 @@ struct G_BackBuffer
     int height;
     int pitch;
     u8 *data;
+    u8 bytes_per_pixel;
 };
 
 struct G_AudioBuffer
@@ -189,7 +190,12 @@ struct G_Memory
 struct G_State
 {
     s16 frequency_hz;
+    f32 t_sine;
+
     struct Rectangle box;
+    s32 player_x;
+    s32 player_y;
+    f32 t_jump;
 };
 
 // Service that the game provides to the platform layer
@@ -203,7 +209,7 @@ struct lib_game
 {
     b32 is_valid;
     void *lib_handle;
-    struct timespec last_modification_time;
+    time_t last_modification_time;
     game_update_and_render_f *update_and_render;
 };
 

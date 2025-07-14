@@ -20,11 +20,7 @@
 #include <sys/stat.h>
 #include <time.h>
 
-global const u8 BYTES_PER_PIXEL = 4;
-
 global BOOL RUNNING;
-global struct G_BackBuffer g_back_buffer;
-global struct G_AudioBuffer g_audio_buffer;
 
 @interface HandmadeWindowDelegate : NSObject <NSWindowDelegate>
 
@@ -124,20 +120,20 @@ DEBUG_PLATFORM_WRITE_FILE(debug_platform_write_file)
 {
     int file_handle =
         open(path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-    u32 bytes_to_read       = size;
+    u32 bytes_to_write      = size;
     u8 *next_bytes_location = (u8 *)data;
-    while (bytes_to_read)
+    while (bytes_to_write)
     {
-        ssize_t bytes_read =
-            write(file_handle, next_bytes_location, bytes_to_read);
-        if (bytes_read == -1)
+        ssize_t bytes_written =
+            write(file_handle, next_bytes_location, bytes_to_write);
+        if (bytes_written == -1)
         {
             close(file_handle);
             return true;
         }
 
-        bytes_to_read -= bytes_read;
-        next_bytes_location += bytes_read;
+        bytes_to_write -= bytes_written;
+        next_bytes_location += bytes_written;
     }
 
     return false;
@@ -148,6 +144,88 @@ DEBUG_PLATFORM_FREE_FILE(debug_platform_free_file)
     if (data)
     {
         free(data);
+    }
+}
+
+internal void macos_record_input(struct macos_state *state,
+                                 struct G_Input *input)
+{
+    // write(state->recording_handle, (uint8_t *)input, sizeof(*input));
+    size_t bytes_written =
+        fwrite(input, sizeof(char), sizeof(*input), state->recording_handle);
+    if (bytes_written <= 0)
+    {
+        // Log record input failure
+    }
+}
+
+internal void macos_begin_recording_input(struct macos_state *state, s32 index)
+{
+    // state->input_recording_index = index;
+    // char *filename               = "foo.hmi";
+    // state->recording_handle =
+    //     open(filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP |
+    //     S_IROTH);
+
+    if (state->replay_memory_block)
+    {
+        state->recording_handle = state->replay_file_handle;
+        fseek(state->recording_handle, (s64)state->memory_block_size, SEEK_SET);
+        memcpy(state->replay_memory_block, state->memory_block,
+               state->memory_block_size);
+        state->is_recording = 1;
+    }
+}
+
+internal void macos_end_recording_input(struct macos_state *state)
+{
+    // close(state->recording_handle);
+    // state->input_recording_index = 0;
+    state->is_recording = 0;
+}
+
+internal void macos_begin_input_playback(struct macos_state *state, s32 index)
+{
+    // state->input_playing_index = index;
+    // char *filename             = "foo.hmi";
+    // state->recording_handle    = open(filename, O_RDONLY | O_CREAT,
+    //                                   S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    if (state->replay_memory_block)
+    {
+        state->playback_handle = state->replay_file_handle;
+        fseek(state->playback_handle, (s64)state->memory_block_size, SEEK_SET);
+        memcpy(state->memory_block, state->replay_memory_block,
+               state->memory_block_size);
+        state->is_playing_back = 1;
+    }
+}
+
+internal void macos_end_input_playback(struct macos_state *state)
+{
+    // close(state->playback_handle);
+    // state->input_playing_index = 0;
+    state->is_playing_back = 0;
+}
+
+internal void macos_playback_input(struct macos_state *state,
+                                   struct G_Input *input)
+{
+    // ssize_t bytes_read =
+    //     read(state->playback_handle, (uint8_t *)input, sizeof(*input));
+    // if (bytes_read == 0) {
+    //     // reached the end of the stream
+    //     s32 index = state->input_playing_index;
+    //     macos_end_input_playback(state);
+    //     macos_begin_input_playback(state, index);
+    //     bytes_read =
+    //         read(state->playback_handle, (uint8_t *)input, sizeof(*input));
+    // }
+    size_t bytes_read =
+        fread(input, sizeof(char), sizeof(*input), state->playback_handle);
+    if (bytes_read <= 0)
+    {
+        macos_end_input_playback(state);
+        macos_begin_input_playback(state, 1); // loop playback
     }
 }
 #endif
@@ -202,36 +280,20 @@ void copy(char *src, char *dst)
     printf("finished copy from %s to %s\n", src, dst);
 }
 
-internal struct timespec macos_get_last_file_write(char *path)
+internal time_t macos_get_last_file_write(char *path)
 {
-    struct timespec result = {0};
-
-    // open/create file
-    int file_handle = open(path, O_RDONLY);
-    if (file_handle == -1)
+    time_t result           = 0;
+    struct stat file_status = {0};
+    if (stat(path, &file_status) == 0)
     {
-        printf("unable to open %s\n", path);
-        exit(EXIT_FAILURE);
+        result = file_status.st_mtime;
     }
 
-    // get file size
-    struct stat file_status;
-    if (fstat(file_handle, &file_status) == -1)
-    {
-        printf("unable to get file status %s\n", path);
-        close(file_handle);
-        return result;
-    }
-
-    return file_status.st_mtimespec;
+    return result;
 }
 
 internal struct lib_game macos_load_game_code()
 {
-    char cwd[256];
-    getcwd(cwd, 265);
-    printf("cwd %s\n", cwd);
-
     char *lib_path = "libgame.dylib";
     char *tmp_path = "tmp_libgame.dylib";
 
@@ -275,10 +337,93 @@ internal void macos_unload_game_code(struct lib_game *game)
         game->lib_handle = 0;
     }
 
+    game->is_valid          = 0;
     game->update_and_render = stub_game_update_and_render;
 }
 int main()
 {
+    // begin game setup
+    struct G_BackBuffer back_buffer = {0};
+    back_buffer.bytes_per_pixel     = 4;
+
+    u32 monitor_refresh_rate_hz = 60;
+    u32 game_refresh_rate_hz    = monitor_refresh_rate_hz / 2;
+    f32 target_ms_per_frame     = 1.0E3f / game_refresh_rate_hz;
+
+    struct Gamepad mac_gamepad = {0};
+    macos_device_register(&mac_gamepad);
+
+    struct G_Input inputs[2]   = {0};
+    struct G_Input *curr_input = &inputs[0];
+    struct G_Input *prev_input = &inputs[1];
+
+    struct G_AudioBuffer audio_buffer     = {0};
+    struct Macos_AudioOutput audio_output = {0};
+    macos_audio_create(&audio_output);
+
+    s16 *samples =
+        calloc(audio_output.sample_rate_khz, audio_output.bytes_per_sample);
+    audio_buffer.sample_rate_khz = audio_output.sample_rate_khz;
+
+#if HANDMADE_INTERNAL
+    void *base_address = (void *)TERABYTES(2);
+#else
+    void *base_address = (void *)0;
+#endif
+
+    struct macos_state macos_state = {0};
+    struct G_Memory memory         = {0};
+    memory.permanent_size          = MEGABYTES(64);
+    memory.transient_size          = GIGABYTES(2);
+    memory.permanent =
+        mmap(base_address, (u64)(memory.permanent_size + memory.transient_size),
+             PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+    memory.transient = ((u8 *)memory.permanent + memory.permanent_size);
+
+    ASSERT(samples && memory.permanent && memory.transient);
+    if (!samples && !memory.permanent && !memory.transient)
+    {
+        NSLog(@"Error setting up memory");
+    }
+
+    macos_state.memory_block      = memory.permanent;
+    macos_state.memory_block_size = memory.permanent_size;
+
+    int file_descriptor;
+    mode_t mode = S_IRUSR | S_IWUSR;
+    char filename[256];
+    sprintf(filename, "replay_buffer.hmi");
+    file_descriptor = open(filename, O_CREAT | O_RDWR, mode);
+    int result      = truncate(filename, (s64)memory.permanent_size);
+
+    if (result < 0)
+    {
+        printf("Failed to open replay_buffer.hmi\n");
+        exit(1);
+    }
+
+    macos_state.replay_memory_block =
+        mmap(0, memory.permanent_size, PROT_READ | PROT_WRITE, MAP_PRIVATE,
+             file_descriptor, 0);
+    macos_state.replay_file_handle = fopen(filename, "r+");
+    fseek(macos_state.replay_file_handle, (int)macos_state.memory_block_size,
+          SEEK_SET);
+    if (!macos_state.replay_memory_block)
+    {
+        printf("Failed to allocate replay_memory_block\n");
+        exit(1);
+    }
+
+#if HANDMADE_INTERNAL
+    memory.debug_platform_free_file  = debug_platform_free_file;
+    memory.debug_platform_read_file  = debug_platform_read_file;
+    memory.debug_platform_write_file = debug_platform_write_file;
+#endif
+
+    struct lib_game game = macos_load_game_code();
+    // end game setup
+
+    // begin platform setup
     NSApplication *app = [NSApplication sharedApplication];
     [app setActivationPolicy:NSApplicationActivationPolicyRegular];
     [app activateIgnoringOtherApps:YES];
@@ -310,63 +455,21 @@ int main()
         [[HandmadeWindowDelegate alloc] init];
     [window setDelegate:windowDelegate];
 
-    CGRect rect = macos_get_window_rect(window);
-    macos_buffer_resize(&g_back_buffer, rect.size.width, rect.size.height);
-    NSString *title =
-        [NSString stringWithFormat:@"Handmade Hero (%d x %d)",
-                                   g_back_buffer.width, g_back_buffer.height];
-    [window setTitle:title];
-
-    u32 monitor_refresh_rate_hz = 60;
-    u32 game_refresh_rate_hz    = monitor_refresh_rate_hz / 2;
-    f32 target_ms_per_frame     = 1.0E3f / game_refresh_rate_hz;
-
-    struct Gamepad mac_gamepad = {0};
-    macos_device_register(&mac_gamepad);
-
-    struct G_Input inputs[2]   = {0};
-    struct G_Input *curr_input = &inputs[0];
-    struct G_Input *prev_input = &inputs[1];
-
-    struct Macos_AudioOutput audio_output = {0};
-    AudioComponentInstance audio_unit     = NULL;
-    macos_audio_create(&audio_output, audio_unit);
-
-    s16 *samples =
-        calloc(audio_output.sample_rate_khz, audio_output.bytes_per_sample);
-    g_audio_buffer.sample_rate_khz = audio_output.sample_rate_khz;
-
-#if HANDMADE_INTERNAL
-    void *base_address = (void *)TERABYTES(2);
-#else
-    void *base_address = (void *)0;
-#endif
-
-    struct G_Memory memory = {0};
-    memory.permanent_size  = MEGABYTES(64);
-    memory.transient_size  = GIGABYTES(2);
-    memory.permanent =
-        mmap(base_address, (u64)(memory.permanent_size + memory.transient_size),
-             PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
-    memory.transient = ((u8 *)memory.permanent + memory.permanent_size);
-
-    if (!samples && !memory.permanent && !memory.transient)
-    {
-        NSLog(@"Error setting up memory");
-    }
-#if HANDMADE_INTERNAL
-    memory.debug_platform_free_file  = debug_platform_free_file;
-    memory.debug_platform_read_file  = debug_platform_read_file;
-    memory.debug_platform_write_file = debug_platform_write_file;
-#endif
-
-    struct lib_game game        = macos_load_game_code();
     windowDelegate.game         = &game;
     windowDelegate.memory       = &memory;
-    windowDelegate.back_buffer  = &g_back_buffer;
-    windowDelegate.audio_buffer = &g_audio_buffer;
+    windowDelegate.back_buffer  = &back_buffer;
+    windowDelegate.audio_buffer = &audio_buffer;
     windowDelegate.input        = curr_input;
 
+    CGRect rect = macos_get_window_rect(window);
+    macos_buffer_resize(&back_buffer, rect.size.width, rect.size.height);
+    NSString *title =
+        [NSString stringWithFormat:@"Handmade Hero (%d x %d)",
+                                   back_buffer.width, back_buffer.height];
+    [window setTitle:title];
+    // end platform
+
+    // run loop
     RUNNING = true;
     mach_timebase_info_data_t timebase;
     mach_timebase_info(&timebase);
@@ -374,11 +477,10 @@ int main()
 
     while (RUNNING)
     {
-        struct timespec mtime = macos_get_last_file_write("libgame.dylib");
-        if (mtime.tv_sec != 0 &&
-            mtime.tv_sec != game.last_modification_time.tv_sec &&
-            mtime.tv_nsec != game.last_modification_time.tv_nsec)
+        time_t mtime = macos_get_last_file_write("libgame.dylib");
+        if (game.last_modification_time < mtime)
         {
+            printf("loading updated game library\n");
             macos_unload_game_code(&game);
             game                        = macos_load_game_code();
             game.last_modification_time = mtime;
@@ -396,18 +498,50 @@ int main()
             switch ([event type])
             {
             case NSEventTypeKeyDown:
+#if 1
                 printf("key down hex %x\n", event.keyCode);
+#endif
                 if (event.keyCode == 0x35) // Escape
                 {
                     RUNNING = false;
                 }
-                if (event.keyCode == 0x31)
+                if (event.keyCode == 0x2e) // m
                 {
-                    // AudioOutputUnitStart(audio_output.audio_unit);
+                    AudioOutputUnitStart(*audio_output.audio_unit);
                 }
-                else if (event.keyCode == 0x7e)
+                else if (event.keyCode == 0x31) // space
                 {
+                    mac_gamepad.face_bottom.state = 1;
                 }
+#if HANDMADE_INTERNAL
+                else if (event.keyCode == 0x25) // l
+                {
+                    // if (macos_state.input_recording_index == 0) {
+                    //     macos_begin_recording_input(&macos_state, 1);
+                    // }
+                    // else {
+                    //     macos_end_recording_input(&macos_state);
+                    //     macos_begin_input_playback(&macos_state, 1);
+                    // }
+
+                    if (macos_state.is_playing_back)
+                    {
+                        macos_end_input_playback(&macos_state);
+                        break;
+                    }
+
+                    if (macos_state.is_recording)
+                    {
+                        macos_end_recording_input(&macos_state);
+                        macos_begin_input_playback(&macos_state, 1);
+                        break;
+                    }
+                    else
+                    {
+                        macos_begin_recording_input(&macos_state, 1);
+                    }
+                }
+#endif
 
                 if (event.keyCode == 0x0d) // W
                 {
@@ -428,9 +562,9 @@ int main()
 
                 break;
             case NSEventTypeKeyUp:
-                if (event.keyCode == 0x31)
+                if (event.keyCode == 0x2e)
                 {
-                    // AudioOutputUnitStop(audio_output.audio_unit);
+                    AudioOutputUnitStop(*audio_output.audio_unit);
                 }
                 else if (event.keyCode == 0x7d)
                 {
@@ -444,6 +578,10 @@ int main()
                     mac_gamepad.dpad_x.state = 0;
                 }
 
+                else if (event.keyCode == 0x31)
+                {
+                    mac_gamepad.face_bottom.state = 0;
+                }
                 break;
             default:
                 [app sendEvent:event];
@@ -468,6 +606,10 @@ int main()
         macos_process_gamepad_button(&prev_gamepad->dpad_right,
                                      &curr_gamepad->dpad_right,
                                      mac_gamepad.dpad_x.state == 1);
+
+        macos_process_gamepad_button(&prev_gamepad->face_bottom,
+                                     &curr_gamepad->face_bottom,
+                                     mac_gamepad.face_bottom.state == 1);
 
         curr_gamepad->start_x = prev_gamepad->end_x;
         curr_gamepad->start_y = prev_gamepad->end_y;
@@ -533,15 +675,32 @@ int main()
             bytes_to_write = target_cursor - byte_to_lock;
         }
 
-        g_audio_buffer.samples = samples;
-        g_audio_buffer.sample_count =
+        audio_buffer.samples = samples;
+        audio_buffer.sample_count =
             bytes_to_write / audio_output.bytes_per_sample;
 
-        game.update_and_render(&memory, &g_back_buffer, &g_audio_buffer,
+#if HANDMADE_INTERNAL
+        // if (macos_state.input_recording_index) {
+        //     macos_record_input(&macos_state, curr_input);
+        // }
+        // else if (macos_state.input_playing_index) {
+        //     macos_playback_input(&macos_state, curr_input);
+        // }
+        if (macos_state.is_recording)
+        {
+            macos_record_input(&macos_state, curr_input);
+        }
+        else if (macos_state.is_playing_back)
+        {
+            macos_playback_input(&macos_state, curr_input);
+        }
+#endif
+
+        game.update_and_render(&memory, &back_buffer, &audio_buffer,
                                curr_input);
 
         // call after game update
-        macos_audio_fill_buffer(&audio_output, &g_audio_buffer, byte_to_lock,
+        macos_audio_fill_buffer(&audio_output, &audio_buffer, byte_to_lock,
                                 bytes_to_write);
 
         // sleep until target ms per frame
@@ -572,9 +731,9 @@ int main()
         }
 
         // Render
-        macos_window_display(&g_back_buffer, window);
+        macos_window_display(&back_buffer, window);
 
-#if 1
+#if 0
         // Time Profiling
         f32 elapsed_time_ms = macos_get_milliseconds_elapsed(
             last_clock_tick, mach_absolute_time(), &timebase);
@@ -606,7 +765,7 @@ internal void macos_window_display(struct G_BackBuffer *buffer,
                           pixelsWide:buffer->width
                           pixelsHigh:buffer->height
                        bitsPerSample:8
-                     samplesPerPixel:BYTES_PER_PIXEL
+                     samplesPerPixel:buffer->bytes_per_pixel
                             hasAlpha:YES
                             isPlanar:NO
                       colorSpaceName:NSDeviceRGBColorSpace
@@ -632,7 +791,7 @@ internal void macos_buffer_resize(struct G_BackBuffer *buffer, int width,
 
     buffer->width  = width;
     buffer->height = height;
-    buffer->pitch  = width * BYTES_PER_PIXEL;
+    buffer->pitch  = width * buffer->bytes_per_pixel;
     buffer->data   = (u8 *)malloc(buffer->pitch * height);
 }
 
@@ -912,8 +1071,7 @@ internal OSStatus macos_audio_render_callback(
     return noErr;
 }
 
-internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
-                                 AudioComponentInstance audio_unit)
+internal void macos_audio_create(struct Macos_AudioOutput *audio_output)
 {
     audio_output->channels             = 2;
     audio_output->sample_rate_khz      = 48000;
@@ -940,8 +1098,10 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
     assert(output);
 
     // Create a new unit
-    s32 status = AudioComponentInstanceNew(output, &audio_unit);
-    assert(audio_unit);
+    AudioComponentInstance audio_unit;
+    audio_output->audio_unit = &audio_unit;
+    s32 status = AudioComponentInstanceNew(output, audio_output->audio_unit);
+    assert(audio_output->audio_unit);
 
     // Set the format to 16 bit, dual channel, signed integer, linear PCM
     AudioStreamBasicDescription stream_format;
@@ -955,7 +1115,8 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
     stream_format.mFormatFlags =
         kAudioFormatFlagIsPacked | kAudioFormatFlagIsSignedInteger;
 
-    status = AudioUnitSetProperty(audio_unit, kAudioUnitProperty_StreamFormat,
+    status = AudioUnitSetProperty(*audio_output->audio_unit,
+                                  kAudioUnitProperty_StreamFormat,
                                   kAudioUnitScope_Input, 0, &stream_format,
                                   sizeof(AudioStreamBasicDescription));
     assert(status == 0);
@@ -966,14 +1127,14 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output,
     input.inputProcRefCon = audio_output;
 
     status = AudioUnitSetProperty(
-        audio_unit, kAudioUnitProperty_SetRenderCallback,
+        *audio_output->audio_unit, kAudioUnitProperty_SetRenderCallback,
         kAudioUnitScope_Global, 0, &input, sizeof(AURenderCallbackStruct));
     assert(status == 0);
 
-    status = AudioUnitInitialize(audio_unit);
+    status = AudioUnitInitialize(*audio_output->audio_unit);
     assert(status == 0);
 
-    status = AudioOutputUnitStart(audio_unit);
+    status = AudioOutputUnitStart(*audio_output->audio_unit);
     assert(status == 0);
 }
 
