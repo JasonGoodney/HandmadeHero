@@ -35,6 +35,8 @@ typedef double f64;
 #define false 0
 #define true 1
 
+#define ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
+
 #if HANDMADE_SLOW
 #define ASSERT(Expression)                                                     \
     if (!(Expression))                                                         \

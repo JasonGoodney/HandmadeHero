@@ -122,7 +122,7 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
 
     for (int i = 0; i < audio_buffer->sample_count; i++)
     {
-#if 0
+#if 1
         s16 sample = sinf(game_state->t_sine) * volume;
 #else
         s16 sample = 0;

@@ -9,6 +9,12 @@
 #include <IOKit/hid/IOHIDBase.h>
 #include <limits.h>
 
+struct macos_debug_time_marker
+{
+    s32 play_cursor;
+    s32 write_cursor;
+};
+
 struct Macos_AudioOutput
 {
     s16 channels;

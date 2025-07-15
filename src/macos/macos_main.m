@@ -228,6 +228,59 @@ internal void macos_playback_input(struct macos_state *state,
         macos_begin_input_playback(state, 1); // loop playback
     }
 }
+
+internal void macos_debug_draw_vertical_line(struct G_BackBuffer *back_buffer,
+                                             int x, int top, int bottom,
+                                             u32 color)
+{
+    u8 *pixel = (u8 *)back_buffer->data + (top * back_buffer->pitch) +
+                (x * back_buffer->bytes_per_pixel);
+    for (int y = top; y < bottom; y++)
+    {
+        *(u32 *)pixel = color;
+        pixel += back_buffer->pitch;
+    }
+}
+
+internal void macos_draw_audio_buffer_time_marker(
+    struct G_BackBuffer *back_buffer, struct Macos_AudioOutput *audio_output,
+    f32 coeff, int pad_x, int top, int bottom, int value, u32 color)
+{
+
+    ASSERT(value < audio_output->buffer_size);
+
+    f32 x_float = coeff * (f32)value;
+    int x       = pad_x + (int)x_float;
+    macos_debug_draw_vertical_line(back_buffer, x, top, bottom, color);
+}
+
+internal void macos_debug_sync_display(
+    struct G_BackBuffer *back_buffer,
+    struct macos_debug_time_marker *time_markers, size_t time_markers_size,
+    struct Macos_AudioOutput *audio_output, f32 target_ms_per_frame)
+{
+    int pad_x = 16;
+    int pad_y = 16;
+
+    int top    = pad_y;
+    int bottom = back_buffer->height - pad_y;
+
+    f32 coeff =
+        (f32)(back_buffer->width - 2 * pad_x) / (f32)audio_output->buffer_size;
+
+    for (size_t marker_index = 0; marker_index < time_markers_size;
+         marker_index++)
+    {
+        struct macos_debug_time_marker *time_marker =
+            &time_markers[marker_index];
+        macos_draw_audio_buffer_time_marker(
+            back_buffer, audio_output, coeff, pad_x, top, bottom,
+            time_marker->play_cursor, 0xFFFFFFFF);
+        macos_draw_audio_buffer_time_marker(
+            back_buffer, audio_output, coeff, pad_x, top, bottom,
+            time_marker->write_cursor, 0xFF0000FF);
+    }
+}
 #endif
 
 internal void
@@ -247,8 +300,6 @@ internal f32 macos_get_milliseconds_elapsed(u64 start, u64 end,
     f32 result  = (f32)time_ns * 1.0E-6;
     return result;
 }
-
-#define ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
 
 void copy(char *src, char *dst)
 {
@@ -346,9 +397,9 @@ int main()
     struct G_BackBuffer back_buffer = {0};
     back_buffer.bytes_per_pixel     = 4;
 
-    u32 monitor_refresh_rate_hz = 60;
-    u32 game_refresh_rate_hz    = monitor_refresh_rate_hz / 2;
-    f32 target_ms_per_frame     = 1.0E3f / game_refresh_rate_hz;
+    const u32 monitor_refresh_rate_hz = 60;
+    const u32 game_refresh_rate_hz    = monitor_refresh_rate_hz / 2;
+    f32 target_ms_per_frame           = 1.0E3f / game_refresh_rate_hz;
 
     struct Gamepad mac_gamepad = {0};
     macos_device_register(&mac_gamepad);
@@ -470,6 +521,10 @@ int main()
     // end platform
 
     // run loop
+    size_t debug_time_marker_index = 0;
+    struct macos_debug_time_marker
+        debug_time_markers[game_refresh_rate_hz / 2] = {0};
+
     RUNNING = true;
     mach_timebase_info_data_t timebase;
     mach_timebase_info(&timebase);
@@ -730,6 +785,23 @@ int main()
             // TODO: Logging
         }
 
+#if HANDMADE_INTERNAL
+        {
+            ASSERT(debug_time_marker_index < ARRAY_SIZE(debug_time_markers));
+            struct macos_debug_time_marker *time_marker =
+                &debug_time_markers[debug_time_marker_index++];
+            if (debug_time_marker_index == ARRAY_SIZE(debug_time_markers))
+            {
+                debug_time_marker_index = 0;
+            }
+            time_marker->play_cursor  = audio_output.play_cursor;
+            time_marker->write_cursor = target_cursor;
+        }
+
+        macos_debug_sync_display(&back_buffer, debug_time_markers,
+                                 ARRAY_SIZE(debug_time_markers), &audio_output,
+                                 target_ms_per_frame);
+#endif
         // Render
         macos_window_display(&back_buffer, window);
 
@@ -1102,6 +1174,35 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output)
     audio_output->audio_unit = &audio_unit;
     s32 status = AudioComponentInstanceNew(output, audio_output->audio_unit);
     assert(audio_output->audio_unit);
+
+    uint32_t theDataSize          = sizeof(uint32_t);
+    uint32_t outIOBufferFrameSize = 0;
+    uint32_t inIOBufferFrameSize  = 900; // TODO: make dependent on frame rate
+
+    status = AudioUnitSetProperty(
+        audio_unit, kAudioDevicePropertyBufferFrameSize, kAudioUnitScope_Global,
+        0, &inIOBufferFrameSize, sizeof(uint32_t));
+    if (status != noErr)
+    {
+        NSLog(@"Failed to set the IO buffer frame size");
+        return;
+    }
+
+#if HANDMADE_INTERNAL
+    status = AudioUnitGetProperty(
+        audio_unit, kAudioDevicePropertyBufferFrameSize, kAudioUnitScope_Global,
+        0, &outIOBufferFrameSize, &theDataSize);
+
+    if (status != noErr)
+    {
+        NSLog(@"Failed to get the IO buffer frame size");
+        return;
+    }
+    else
+    {
+        NSLog(@"IO buffer frame size: %u", outIOBufferFrameSize);
+    }
+#endif
 
     // Set the format to 16 bit, dual channel, signed integer, linear PCM
     AudioStreamBasicDescription stream_format;
