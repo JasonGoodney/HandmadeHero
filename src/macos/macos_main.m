@@ -28,7 +28,7 @@ global BOOL RUNNING;
 @property(nonatomic, assign) struct game_memory *memory;
 @property(nonatomic, assign) struct game_back_buffer *back_buffer;
 @property(nonatomic, assign) struct game_audio_buffer *audio_buffer;
-@property(nonatomic, assign) struct G_Input *input;
+@property(nonatomic, assign) struct game_input *input;
 
 @end
 
@@ -148,7 +148,7 @@ DEBUG_PLATFORM_FREE_FILE(debug_platform_free_file)
 }
 
 internal void macos_record_input(struct macos_state *state,
-                                 struct G_Input *input)
+                                 struct game_input *input)
 {
     // write(state->recording_handle, (uint8_t *)input, sizeof(*input));
     size_t bytes_written =
@@ -210,7 +210,7 @@ internal void macos_end_input_playback(struct macos_state *state)
 }
 
 internal void macos_playback_input(struct macos_state *state,
-                                   struct G_Input *input)
+                                   struct game_input *input)
 {
     // ssize_t bytes_read =
     //     read(state->playback_handle, (uint8_t *)input, sizeof(*input));
@@ -423,9 +423,9 @@ int main()
     struct Gamepad mac_gamepad = {0};
     macos_device_register(&mac_gamepad);
 
-    struct G_Input inputs[2]   = {0};
-    struct G_Input *curr_input = &inputs[0];
-    struct G_Input *prev_input = &inputs[1];
+    struct game_input inputs[2]   = {0};
+    struct game_input *curr_input = &inputs[0];
+    struct game_input *prev_input = &inputs[1];
 
     struct game_audio_buffer audio_buffer   = {0};
     struct Macos_AudioOutput audio_output = {0};
@@ -726,7 +726,7 @@ int main()
 #if 0 // my ps4 sticks are messed up and output feedback even while idle
         curr_gamepad->is_analog = true;
 #endif
-        struct G_Input *tmp = curr_input;
+        struct game_input *tmp = curr_input;
         curr_input          = prev_input;
         prev_input          = tmp;
 

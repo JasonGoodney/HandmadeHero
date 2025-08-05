@@ -167,7 +167,7 @@ struct G_GamepadInput
     };
 };
 
-struct G_Input
+struct game_input
 {
     struct G_GamepadInput gamepads[4];
 };
@@ -205,7 +205,7 @@ struct game_state
     void func_name(struct game_memory *memory,                                    \
                    struct game_back_buffer *buffer,                                \
                    struct game_audio_buffer *audio_buffer,                         \
-                   struct G_Input *input)
+                   struct game_input *input)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render_f);
 GAME_UPDATE_AND_RENDER(stub_game_update_and_render) {}
 
