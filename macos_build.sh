@@ -55,7 +55,7 @@ fi
 popd
 
 pushd ./build/bin/macos
-if ! $CC $CFLAGS $D_FLAGS $OSX_LD_FLAGS -o handmade ../libgame.dylib "../../../src/macos/macos_main.m" ; then
+if ! $CC $CFLAGS $D_FLAGS $OSX_LD_FLAGS -o handmade ../libgame.dylib "../../../src/macos.m" ; then
     exit 1
 fi
 popd

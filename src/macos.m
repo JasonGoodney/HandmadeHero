@@ -7,7 +7,7 @@
 #include <mach/mach.h>
 #include <mach/mach_time.h>
 
-#include "../game.h"
+#include "game.h"
 #include "macos.h"
 
 #include <dlfcn.h>
@@ -596,7 +596,7 @@ int main(void)
             NSEventType type = event.type;
             if (type == NSEventTypeKeyDown || type == NSEventTypeKeyUp)
             {
-#if 1
+#if 0
                 if ([event type] == NSEventTypeKeyDown) 
                 {
                     printf("key down hex %x\n", event.keyCode);
