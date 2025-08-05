@@ -5,7 +5,6 @@
 #include "game.h"
 #include "handmade.c"
 
-#define MAX_GAMEPADS 4
 SDL_Gamepad *gamepad_handles[MAX_GAMEPADS];
 
 struct sdl_offscreen_buffer
@@ -119,14 +118,6 @@ static void sdl_process_key_press(struct game_button_state *new_state,
     ASSERT(new_state->ended_pressed != is_down);
     new_state->ended_pressed = is_down;
     new_state->half_transition_count++;
-}
-
-static struct game_controller_input *get_controller(struct game_input *input,
-                                                    uint8_t index)
-{
-    ASSERT(index < ARRAY_SIZE(input->controllers));
-    struct game_controller_input *controller = &input->controllers[index];
-    return controller;
 }
 
 static int sdl_get_window_refresh_rate(SDL_Window *window)
@@ -307,12 +298,12 @@ int main(void)
                     }
                     else if (key == SDLK_Q)
                     {
-                        sdl_process_key_press(&new_keyboard->left_shoulder,
+                        sdl_process_key_press(&new_keyboard->shoulder_left,
                                               is_down);
                     }
                     else if (key == SDLK_E)
                     {
-                        sdl_process_key_press(&new_keyboard->right_shoulder,
+                        sdl_process_key_press(&new_keyboard->shoulder_right,
                                               is_down);
                     }
                     else if (key == SDLK_BACKSPACE)
@@ -327,7 +318,7 @@ int main(void)
         {
             if (gamepad_handles[i] == 0)
             {
-                break;
+                continue;
             }
             struct game_controller_input *old_controller =
                 get_controller(old_input, i + 1);
@@ -358,13 +349,13 @@ int main(void)
                 &new_controller->action_right,
                 SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_EAST));
             sdl_process_game_controller_button(
-                &old_controller->left_shoulder,
-                &new_controller->left_shoulder,
+                &old_controller->shoulder_left,
+                &new_controller->shoulder_left,
                 SDL_GetGamepadButton(gamepad,
                                      SDL_GAMEPAD_BUTTON_LEFT_SHOULDER));
             sdl_process_game_controller_button(
-                &old_controller->right_shoulder,
-                &new_controller->right_shoulder,
+                &old_controller->shoulder_right,
+                &new_controller->shoulder_right,
                 SDL_GetGamepadButton(gamepad,
                                      SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER));
             sdl_process_game_controller_button(
@@ -387,28 +378,28 @@ int main(void)
                 sdl_process_game_controller_axis(axis_lefty,
                                                  GAMEPAD_AXIS_DEADZONE);
 
-            new_controller->is_analog =
+            new_controller->is_analog_movement =
                 new_controller->axis_leftx_average != 0.0f ||
                 new_controller->axis_lefty_average != 0.0f;
             if (SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_UP))
             {
                 new_controller->axis_lefty_average = -1.0f;
-                new_controller->is_analog          = 0;
+                new_controller->is_analog_movement          = 0;
             }
             if (SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_DOWN))
             {
                 new_controller->axis_lefty_average = 1.0f;
-                new_controller->is_analog          = 0;
+                new_controller->is_analog_movement          = 0;
             }
             if (SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_LEFT))
             {
                 new_controller->axis_leftx_average = -1.0f;
-                new_controller->is_analog          = 0;
+                new_controller->is_analog_movement          = 0;
             }
             if (SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_RIGHT))
             {
                 new_controller->axis_leftx_average = 1.0f;
-                new_controller->is_analog          = 0;
+                new_controller->is_analog_movement          = 0;
             }
 
             float axis_threshold = 0.5f;

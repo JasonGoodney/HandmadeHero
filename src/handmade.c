@@ -1,8 +1,6 @@
 #include "game.h"
 #include <stdint.h>
 
-#define GAMEPAD_AXIS_DEADZONE 8000
-
 static void game_update_and_render(struct game_memory *memory,
                                    struct game_back_buffer *buffer,
                                    struct game_input *input)
@@ -44,7 +42,7 @@ static void game_update_and_render(struct game_memory *memory,
     {
 
         struct game_controller_input *controller = &input->controllers[i];
-        if (controller->is_analog)
+        if (controller->is_analog_movement)
         {
             state->x_offset -= (int)(2.0f * controller->axis_leftx_average);
             // state->y_offset -= (int)(2.0f * controller->axis_lefty_average);

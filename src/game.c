@@ -36,47 +36,56 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
     }
 
     // Input
-    struct G_GamepadInput gamepad = input->gamepads[0];
+    int controller_count = ARRAY_SIZE(input->controllers);
+    for (int i = 0; i < controller_count; i++)
+    {
+        struct game_controller_input controller = input->controllers[i];
+        if (!controller.is_connected) continue;
 
-    if (gamepad.is_analog)
-    {
-        game_state->box.x = gamepad.end_x;
-        game_state->box.y = gamepad.end_y;
-    }
+        if (controller.is_analog_movement)
+        {
+            // game_state->box.x = gamepad.end_x;
+            // game_state->box.y = gamepad.end_y;
+            game_state->tone_hz =
+                256 + (int)(128.0f * controller.axis_lefty_average);
+        }
+        else
+        {
+            s32 speed = 4;
+            if (controller.move_up.ended_pressed)
+            {
+                game_state->box.y -= speed;
+                game_state->player_y -= speed;
+            }
+            else if (controller.move_down.ended_pressed)
+            {
+                game_state->box.y += speed;
+                game_state->player_y += speed;
+            }
+            else if (controller.move_left.ended_pressed)
+            {
+                game_state->box.x -= speed;
+                game_state->player_x -= speed;
+            }
+            else if (controller.move_right.ended_pressed)
+            {
+                game_state->box.x += speed;
+                game_state->player_x += speed;
+            }
+        }
 
-    s32 speed = 4;
-    if (gamepad.dpad_top.ended_pressed)
-    {
-        game_state->box.y -= speed;
-        game_state->player_y -= speed;
-    }
-    else if (gamepad.dpad_bottom.ended_pressed)
-    {
-        game_state->box.y += speed;
-        game_state->player_y += speed;
-    }
-    else if (gamepad.dpad_left.ended_pressed)
-    {
-        game_state->box.x -= speed;
-        game_state->player_x -= speed;
-    }
-    else if (gamepad.dpad_right.ended_pressed)
-    {
-        game_state->box.x += speed;
-        game_state->player_x += speed;
-    }
+        if (game_state->t_jump > 0)
+        {
+            game_state->player_y +=
+                (s32)(10.0f * sinf(PI_F32 * game_state->t_jump));
+        }
 
-    if (game_state->t_jump > 0)
-    {
-        game_state->player_y +=
-            (s32)(10.0f * sinf(PI_F32 * game_state->t_jump));
+        if (controller.action_down.ended_pressed)
+        {
+            game_state->t_jump = 2.0f;
+        }
+        game_state->t_jump -= 0.033f;
     }
-
-    if (gamepad.face_bottom.ended_pressed)
-    {
-        game_state->t_jump = 2.0f;
-    }
-    game_state->t_jump -= 0.033f;
 
     // Pixels
     int size = game_state->box.width;
@@ -115,23 +124,26 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
     }
 
     // Audio
-    s32 volume = 3000;
-    f32 wave_period =
-        (f32)audio_buffer->sample_rate_khz / game_state->tone_hz;
-    s16 *sample_out = audio_buffer->samples;
-
-    for (int i = 0; i < audio_buffer->sample_count; i++)
+    if (audio_buffer)
     {
-#if 1
-        s16 sample = sinf(game_state->t_sine) * volume;
-#else
-        s16 sample = 0;
-#endif
-        *sample_out = sample;
-        sample_out++;
-        *sample_out = sample;
-        sample_out++;
+        s32 volume = 3000;
+        f32 wave_period =
+            (f32)audio_buffer->sample_rate_khz / game_state->tone_hz;
+        s16 *sample_out = audio_buffer->samples;
 
-        game_state->t_sine += (2.0f * PI_F32 * 1.0f) / (f32)wave_period;
+        for (int i = 0; i < audio_buffer->sample_count; i++)
+        {
+#if 1
+            s16 sample = sinf(game_state->t_sine) * volume;
+#else
+            s16 sample = 0;
+#endif
+            *sample_out = sample;
+            sample_out++;
+            *sample_out = sample;
+            sample_out++;
+
+            game_state->t_sine += (2.0f * PI_F32 * 1.0f) / (f32)wave_period;
+        }
     }
 }

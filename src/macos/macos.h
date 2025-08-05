@@ -50,6 +50,24 @@ struct macos_state
     b32 is_playing_back;
 };
 
+struct DeviceUsage
+{
+    u32 usage_id;
+    s32 state;
+};
+
+struct macos_gamepad
+{
+    b32 is_connected;
+    struct DeviceUsage face_top, face_bottom, face_left, face_right;
+    struct DeviceUsage dpad_x, dpad_y;
+    struct DeviceUsage shoulder_left, shoulder_right;
+    struct DeviceUsage trigger_left, trigger_right;
+    struct DeviceUsage analog_stick_left_x, analog_stick_left_y;
+    struct DeviceUsage analog_stick_right_x, analog_stick_right_y;
+    struct DeviceUsage back, start;
+};
+
 // Audio
 internal void macos_audio_create(struct macos_audio_output *audio_output);
 internal void macos_audio_fill_buffer(struct macos_audio_output *audio_output,

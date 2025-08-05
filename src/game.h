@@ -16,10 +16,6 @@
 #include <stdio.h>
 #include <time.h>
 
-#define internal static
-#define local static
-#define global static
-
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -32,10 +28,24 @@ typedef s32 b32;
 typedef float f32;
 typedef double f64;
 
+#define internal static
+#define local static
+#define global static
+
 #define false 0
 #define true 1
 
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
+#define GAMEPAD_AXIS_DEADZONE 8000
+#define MAX_GAMEPADS 4
+#define PI_F32 3.14159265359f
+#define UNUSED(x) (void)(x)
+#define KILOBYTES(value) ((value) * 1024LL)
+#define MEGABYTES(value) (KILOBYTES(value) * 1024LL)
+#define GIGABYTES(value) (MEGABYTES(value) * 1024LL)
+#define TERABYTES(value) (GIGABYTES(value) * 1024LL)
+global const u32 RENDER_WIDTH  = 64 * 12;
+global const u32 RENDER_HEIGHT = 64 * 8;
 
 #if HANDMADE_SLOW
 #define ASSERT(Expression)                                                     \
@@ -46,42 +56,6 @@ typedef double f64;
 #else
 #define ASSERT(Expression)
 #endif
-
-#define UNUSED(x) (void)(x)
-
-internal inline u32 safe_truncate_uint64(u64 value)
-{
-    ASSERT(value <= 0xFFFFFFFF);
-    u32 result = (u32)value;
-    return (result);
-}
-
-#define KILOBYTES(value) ((value) * 1024LL)
-#define MEGABYTES(value) (KILOBYTES(value) * 1024LL)
-#define GIGABYTES(value) (MEGABYTES(value) * 1024LL)
-#define TERABYTES(value) (GIGABYTES(value) * 1024LL)
-
-global const u32 RENDER_WIDTH  = 64 * 12;
-global const u32 RENDER_HEIGHT = 64 * 8;
-
-#define PI_F32 3.14159265359f
-
-struct DeviceUsage
-{
-    u32 usage_id;
-    s32 state;
-};
-
-struct Gamepad
-{
-    b32 is_initialized;
-    struct DeviceUsage face_top, face_bottom, face_left, face_right;
-    struct DeviceUsage dpad_x, dpad_y;
-    struct DeviceUsage should_left, should_right;
-    struct DeviceUsage trigger_left, trigger_right;
-    struct DeviceUsage analog_stick_left_x, analog_stick_left_y;
-    struct DeviceUsage analog_stick_right_x, analog_stick_right_y;
-};
 
 struct Rectangle
 {
@@ -134,43 +108,10 @@ struct game_button_state
     b32 ended_pressed;
 };
 
-struct G_GamepadInput
-{
-    b32 is_analog;
-
-    f32 start_x;
-    f32 start_y;
-    f32 end_x;
-    f32 end_y;
-    f32 min_x;
-    f32 min_y;
-    f32 max_x;
-    f32 max_y;
-
-    union
-    {
-        struct game_button_state buttons[10];
-
-        struct
-        {
-            struct game_button_state face_top;
-            struct game_button_state face_bottom;
-            struct game_button_state face_left;
-            struct game_button_state face_right;
-            struct game_button_state dpad_top;
-            struct game_button_state dpad_bottom;
-            struct game_button_state dpad_left;
-            struct game_button_state dpad_right;
-            struct game_button_state left_shoulder;
-            struct game_button_state right_shoulder;
-        };
-    };
-};
-
 struct game_controller_input
 {
     int is_connected;
-    int is_analog;
+    int is_analog_movement;
     float axis_leftx_average;
     float axis_lefty_average;
     union
@@ -186,8 +127,8 @@ struct game_controller_input
             struct game_button_state action_down;
             struct game_button_state action_left;
             struct game_button_state action_right;
-            struct game_button_state left_shoulder;
-            struct game_button_state right_shoulder;
+            struct game_button_state shoulder_left;
+            struct game_button_state shoulder_right;
             struct game_button_state back;
             struct game_button_state start;
 
@@ -199,7 +140,6 @@ struct game_controller_input
 
 struct game_input
 {
-    struct G_GamepadInput gamepads[4];
     struct game_controller_input controllers[5];
 };
 
@@ -249,5 +189,51 @@ struct lib_game
     time_t last_modification_time;
     game_update_and_render_f *update_and_render;
 };
+
+internal inline u32 safe_truncate_uint64(u64 value)
+{
+    ASSERT(value <= 0xFFFFFFFF);
+    u32 result = (u32)value;
+    return (result);
+}
+
+internal inline struct game_controller_input *get_controller(struct game_input *input,
+                                                    uint8_t index)
+{
+    ASSERT(index < ARRAY_SIZE(input->controllers));
+    struct game_controller_input *controller = &input->controllers[index];
+    return controller;
+}
+
+internal inline f32 normalize_gamepad_axis_input(s16 value, s16 range, s16 mid, s16 dead_zone) {
+    float result = 0;
+    if (value < mid - dead_zone)
+    {
+        result = (float)((value + dead_zone - mid) / (float)(range - dead_zone));
+    }
+    else if (value > mid + dead_zone)
+    {
+
+        result = (float)((value - dead_zone - mid) / (float)((range-1) - dead_zone));
+    }
+    return result;
+}
+
+internal inline void process_keyboard_key_input(struct game_button_state *new_state,
+                                        int is_pressed)
+{
+    ASSERT(new_state->ended_pressed != is_pressed);
+    new_state->ended_pressed = is_pressed;
+    new_state->half_transition_count++;
+}
+
+internal inline void process_gamepad_button_input(struct game_button_state *old_state,
+                                           struct game_button_state *new_state,
+                                           b32 is_pressed)
+{
+    new_state->ended_pressed = is_pressed;
+    new_state->half_transition_count +=
+        old_state->ended_pressed == new_state->ended_pressed ? 0 : 1;
+}
 
 #endif // GAME_H
