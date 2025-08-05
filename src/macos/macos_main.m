@@ -245,7 +245,7 @@ internal void macos_debug_draw_vertical_line(
 
 internal void
 macos_draw_audio_buffer_time_marker(struct game_back_buffer *back_buffer,
-                                    struct Macos_AudioOutput *audio_output,
+                                    struct macos_audio_output *audio_output,
                                     f32 coeff,
                                     int pad_x,
                                     int top,
@@ -265,7 +265,7 @@ internal void
 macos_debug_sync_display(struct game_back_buffer *back_buffer,
                          struct macos_debug_time_marker *time_markers,
                          size_t time_markers_size,
-                         struct Macos_AudioOutput *audio_output,
+                         struct macos_audio_output *audio_output,
                          f32 target_ms_per_frame)
 {
     int pad_x = 16;
@@ -428,7 +428,7 @@ int main()
     struct game_input *prev_input = &inputs[1];
 
     struct game_audio_buffer audio_buffer   = {0};
-    struct Macos_AudioOutput audio_output = {0};
+    struct macos_audio_output audio_output = {0};
     macos_audio_create(&audio_output);
 
     s16 *samples =
@@ -1148,8 +1148,8 @@ macos_audio_render_callback(void *int_ref_con,
     UNUSED(in_bus_number);
 
     // Read from circular buffer
-    struct Macos_AudioOutput *audio_output =
-        (struct Macos_AudioOutput *)int_ref_con;
+    struct macos_audio_output *audio_output =
+        (struct macos_audio_output *)int_ref_con;
 
     u32 bytes_to_output = in_number_frames * audio_output->bytes_per_sample;
 
@@ -1181,7 +1181,7 @@ macos_audio_render_callback(void *int_ref_con,
     return noErr;
 }
 
-internal void macos_audio_create(struct Macos_AudioOutput *audio_output)
+internal void macos_audio_create(struct macos_audio_output *audio_output)
 {
     audio_output->channels             = 2;
     audio_output->sample_rate_khz      = 48000;
@@ -1288,7 +1288,7 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output)
     assert(status == 0);
 }
 
-internal void macos_audio_fill_buffer(struct Macos_AudioOutput *audio_output,
+internal void macos_audio_fill_buffer(struct macos_audio_output *audio_output,
                                       struct game_audio_buffer *audio_buffer,
                                       s32 byte_to_lock,
                                       s32 bytes_to_write)

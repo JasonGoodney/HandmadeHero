@@ -15,7 +15,7 @@ struct macos_debug_time_marker
     s32 write_cursor;
 };
 
-struct Macos_AudioOutput
+struct macos_audio_output
 {
     s16 channels;
     s16 bytes_per_sample;
@@ -51,8 +51,8 @@ struct macos_state
 };
 
 // Audio
-internal void macos_audio_create(struct Macos_AudioOutput *audio_output);
-internal void macos_audio_fill_buffer(struct Macos_AudioOutput *audio_output,
+internal void macos_audio_create(struct macos_audio_output *audio_output);
+internal void macos_audio_fill_buffer(struct macos_audio_output *audio_output,
                                       struct game_audio_buffer *audio_buffer,
                                       s32 byte_to_lock, s32 bytes_to_write);
 
