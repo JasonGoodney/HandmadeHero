@@ -43,17 +43,17 @@ global BOOL RUNNING;
     NSWindow *window = (NSWindow *)notification.object;
     CGRect rect      = macos_get_window_rect(window);
 
-    NSString *title =
-        [NSString stringWithFormat:@"Handmade Hero (%d x %d)",
-                                   (int)rect.size.width, (int)rect.size.height];
+    NSString *title = [NSString stringWithFormat:@"Handmade Hero (%d x %d)",
+                                                 (int)rect.size.width,
+                                                 (int)rect.size.height];
     [window setTitle:title];
 
     if (self.memory && self.back_buffer && self.audio_buffer && self.input)
     {
-        macos_buffer_resize(self.back_buffer, rect.size.width,
-                            rect.size.height);
-        self.game->update_and_render(self.memory, self.back_buffer,
-                                     self.audio_buffer, self.input);
+        macos_buffer_resize(
+            self.back_buffer, rect.size.width, rect.size.height);
+        self.game->update_and_render(
+            self.memory, self.back_buffer, self.audio_buffer, self.input);
         macos_window_display(self.back_buffer, window);
     }
 }
@@ -171,7 +171,8 @@ internal void macos_begin_recording_input(struct macos_state *state, s32 index)
     {
         state->recording_handle = state->replay_file_handle;
         fseek(state->recording_handle, (s64)state->memory_block_size, SEEK_SET);
-        memcpy(state->replay_memory_block, state->memory_block,
+        memcpy(state->replay_memory_block,
+               state->memory_block,
                state->memory_block_size);
         state->is_recording = 1;
     }
@@ -194,7 +195,8 @@ internal void macos_begin_input_playback(struct macos_state *state, s32 index)
     {
         state->playback_handle = state->replay_file_handle;
         fseek(state->playback_handle, (s64)state->memory_block_size, SEEK_SET);
-        memcpy(state->memory_block, state->replay_memory_block,
+        memcpy(state->memory_block,
+               state->replay_memory_block,
                state->memory_block_size);
         state->is_playing_back = 1;
     }
@@ -229,9 +231,8 @@ internal void macos_playback_input(struct macos_state *state,
     }
 }
 
-internal void macos_debug_draw_vertical_line(struct G_BackBuffer *back_buffer,
-                                             int x, int top, int bottom,
-                                             u32 color)
+internal void macos_debug_draw_vertical_line(
+    struct G_BackBuffer *back_buffer, int x, int top, int bottom, u32 color)
 {
     u8 *pixel = (u8 *)back_buffer->data + (top * back_buffer->pitch) +
                 (x * back_buffer->bytes_per_pixel);
@@ -242,9 +243,15 @@ internal void macos_debug_draw_vertical_line(struct G_BackBuffer *back_buffer,
     }
 }
 
-internal void macos_draw_audio_buffer_time_marker(
-    struct G_BackBuffer *back_buffer, struct Macos_AudioOutput *audio_output,
-    f32 coeff, int pad_x, int top, int bottom, int value, u32 color)
+internal void
+macos_draw_audio_buffer_time_marker(struct G_BackBuffer *back_buffer,
+                                    struct Macos_AudioOutput *audio_output,
+                                    f32 coeff,
+                                    int pad_x,
+                                    int top,
+                                    int bottom,
+                                    int value,
+                                    u32 color)
 {
 
     ASSERT(value < audio_output->buffer_size);
@@ -254,10 +261,12 @@ internal void macos_draw_audio_buffer_time_marker(
     macos_debug_draw_vertical_line(back_buffer, x, top, bottom, color);
 }
 
-internal void macos_debug_sync_display(
-    struct G_BackBuffer *back_buffer,
-    struct macos_debug_time_marker *time_markers, size_t time_markers_size,
-    struct Macos_AudioOutput *audio_output, f32 target_ms_per_frame)
+internal void
+macos_debug_sync_display(struct G_BackBuffer *back_buffer,
+                         struct macos_debug_time_marker *time_markers,
+                         size_t time_markers_size,
+                         struct Macos_AudioOutput *audio_output,
+                         f32 target_ms_per_frame)
 {
     int pad_x = 16;
     int pad_y = 16;
@@ -273,27 +282,37 @@ internal void macos_debug_sync_display(
     {
         struct macos_debug_time_marker *time_marker =
             &time_markers[marker_index];
-        macos_draw_audio_buffer_time_marker(
-            back_buffer, audio_output, coeff, pad_x, top, bottom,
-            time_marker->play_cursor, 0xFFFFFFFF);
-        macos_draw_audio_buffer_time_marker(
-            back_buffer, audio_output, coeff, pad_x, top, bottom,
-            time_marker->write_cursor, 0xFF0000FF);
+        macos_draw_audio_buffer_time_marker(back_buffer,
+                                            audio_output,
+                                            coeff,
+                                            pad_x,
+                                            top,
+                                            bottom,
+                                            time_marker->play_cursor,
+                                            0xFFFFFFFF);
+        macos_draw_audio_buffer_time_marker(back_buffer,
+                                            audio_output,
+                                            coeff,
+                                            pad_x,
+                                            top,
+                                            bottom,
+                                            time_marker->write_cursor,
+                                            0xFF0000FF);
     }
 }
 #endif
 
-internal void
-macos_process_gamepad_button(struct G_GamepadButtonState *prev_state,
-                             struct G_GamepadButtonState *curr_state,
-                             b32 curr_is_pressed)
+internal void macos_process_gamepad_button(struct GameButtonState *prev_state,
+                                           struct GameButtonState *curr_state,
+                                           b32 curr_is_pressed)
 {
     curr_state->ended_pressed = curr_is_pressed;
     curr_state->half_transition_count +=
         prev_state->ended_pressed == curr_state->ended_pressed ? 0 : 1;
 }
 
-internal f32 macos_get_milliseconds_elapsed(u64 start, u64 end,
+internal f32 macos_get_milliseconds_elapsed(u64 start,
+                                            u64 end,
                                             mach_timebase_info_data_t *timebase)
 {
     u64 time_ns = (end - start) * (timebase->numer / timebase->denom);
@@ -427,8 +446,12 @@ int main()
     memory.permanent_size          = MEGABYTES(64);
     memory.transient_size          = GIGABYTES(2);
     memory.permanent =
-        mmap(base_address, (u64)(memory.permanent_size + memory.transient_size),
-             PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+        mmap(base_address,
+             (u64)(memory.permanent_size + memory.transient_size),
+             PROT_READ | PROT_WRITE,
+             MAP_ANON | MAP_PRIVATE,
+             -1,
+             0);
     memory.transient = ((u8 *)memory.permanent + memory.permanent_size);
 
     ASSERT(samples && memory.permanent && memory.transient);
@@ -453,11 +476,15 @@ int main()
         exit(1);
     }
 
-    macos_state.replay_memory_block =
-        mmap(0, memory.permanent_size, PROT_READ | PROT_WRITE, MAP_PRIVATE,
-             file_descriptor, 0);
-    macos_state.replay_file_handle = fopen(filename, "r+");
-    fseek(macos_state.replay_file_handle, (int)macos_state.memory_block_size,
+    macos_state.replay_memory_block = mmap(0,
+                                           memory.permanent_size,
+                                           PROT_READ | PROT_WRITE,
+                                           MAP_PRIVATE,
+                                           file_descriptor,
+                                           0);
+    macos_state.replay_file_handle  = fopen(filename, "r+");
+    fseek(macos_state.replay_file_handle,
+          (int)macos_state.memory_block_size,
           SEEK_SET);
     if (!macos_state.replay_memory_block)
     {
@@ -483,7 +510,8 @@ int main()
 
     NSRect contentRect =
         NSMakeRect((screenRect.size.width - RENDER_WIDTH) * 0.5,
-                   (screenRect.size.height - RENDER_HEIGHT) * 0.5, RENDER_WIDTH,
+                   (screenRect.size.height - RENDER_HEIGHT) * 0.5,
+                   RENDER_WIDTH,
                    RENDER_HEIGHT);
 
     NSWindowStyleMask styleMask =
@@ -514,9 +542,9 @@ int main()
 
     CGRect rect = macos_get_window_rect(window);
     macos_buffer_resize(&back_buffer, rect.size.width, rect.size.height);
-    NSString *title =
-        [NSString stringWithFormat:@"Handmade Hero (%d x %d)",
-                                   back_buffer.width, back_buffer.height];
+    NSString *title = [NSString stringWithFormat:@"Handmade Hero (%d x %d)",
+                                                 back_buffer.width,
+                                                 back_buffer.height];
     [window setTitle:title];
     // end platform
 
@@ -751,12 +779,12 @@ int main()
         }
 #endif
 
-        game.update_and_render(&memory, &back_buffer, &audio_buffer,
-                               curr_input);
+        game.update_and_render(
+            &memory, &back_buffer, &audio_buffer, curr_input);
 
         // call after game update
-        macos_audio_fill_buffer(&audio_output, &audio_buffer, byte_to_lock,
-                                bytes_to_write);
+        macos_audio_fill_buffer(
+            &audio_output, &audio_buffer, byte_to_lock, bytes_to_write);
 
         // sleep until target ms per frame
         // TODO: change to nanoseconds
@@ -798,8 +826,10 @@ int main()
             time_marker->write_cursor = target_cursor;
         }
 
-        macos_debug_sync_display(&back_buffer, debug_time_markers,
-                                 ARRAY_SIZE(debug_time_markers), &audio_output,
+        macos_debug_sync_display(&back_buffer,
+                                 debug_time_markers,
+                                 ARRAY_SIZE(debug_time_markers),
+                                 &audio_output,
                                  target_ms_per_frame);
 #endif
         // Render
@@ -852,8 +882,8 @@ internal void macos_window_display(struct G_BackBuffer *buffer,
     }
 }
 
-internal void macos_buffer_resize(struct G_BackBuffer *buffer, int width,
-                                  int height)
+internal void
+macos_buffer_resize(struct G_BackBuffer *buffer, int width, int height)
 {
     if (buffer->data)
     {
@@ -867,8 +897,10 @@ internal void macos_buffer_resize(struct G_BackBuffer *buffer, int width,
     buffer->data   = (u8 *)malloc(buffer->pitch * height);
 }
 
-internal void macos_device_input_callback(void *context, IOReturn result,
-                                          void *sender, IOHIDValueRef value)
+internal void macos_device_input_callback(void *context,
+                                          IOReturn result,
+                                          void *sender,
+                                          IOHIDValueRef value)
 {
     UNUSED(sender);
 
@@ -980,8 +1012,10 @@ internal void macos_device_input_callback(void *context, IOReturn result,
     }
 }
 
-internal void macos_device_callback(void *context, IOReturn result,
-                                    void *sender, IOHIDDeviceRef device)
+internal void macos_device_callback(void *context,
+                                    IOReturn result,
+                                    void *sender,
+                                    IOHIDDeviceRef device)
 {
     UNUSED(sender);
 
@@ -1000,8 +1034,8 @@ internal void macos_device_callback(void *context, IOReturn result,
         {
             if (CFGetTypeID(ref) == CFNumberGetTypeID())
             {
-                CFNumberGetValue((CFNumberRef)ref, kCFNumberSInt32Type,
-                                 &vendorID);
+                CFNumberGetValue(
+                    (CFNumberRef)ref, kCFNumberSInt32Type, &vendorID);
             }
         }
     }
@@ -1013,8 +1047,8 @@ internal void macos_device_callback(void *context, IOReturn result,
         {
             if (CFGetTypeID(ref) == CFNumberGetTypeID())
             {
-                CFNumberGetValue((CFNumberRef)ref, kCFNumberSInt32Type,
-                                 &productID);
+                CFNumberGetValue(
+                    (CFNumberRef)ref, kCFNumberSInt32Type, &productID);
             }
         }
     }
@@ -1059,8 +1093,8 @@ internal void macos_device_callback(void *context, IOReturn result,
         @{@(kIOHIDElementUsagePageKey) : @(kHIDPage_KeyboardOrKeypad)}
     ]);
 
-    IOHIDDeviceRegisterInputValueCallback(device, macos_device_input_callback,
-                                          context);
+    IOHIDDeviceRegisterInputValueCallback(
+        device, macos_device_input_callback, context);
 }
 
 internal void macos_device_register(void *context)
@@ -1087,11 +1121,11 @@ internal void macos_device_register(void *context)
         }
     ]);
 
-    IOHIDManagerRegisterDeviceMatchingCallback(manager, macos_device_callback,
-                                               context);
+    IOHIDManagerRegisterDeviceMatchingCallback(
+        manager, macos_device_callback, context);
 
-    IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetMain(),
-                                    kCFRunLoopDefaultMode);
+    IOHIDManagerScheduleWithRunLoop(
+        manager, CFRunLoopGetMain(), kCFRunLoopDefaultMode);
 
     IOReturn ioReturn = IOHIDManagerOpen(manager, kIOHIDOptionsTypeNone);
     if (ioReturn != kIOReturnSuccess)
@@ -1101,10 +1135,13 @@ internal void macos_device_register(void *context)
     }
 }
 
-internal OSStatus macos_audio_render_callback(
-    void *int_ref_con, enum AudioUnitRenderActionFlags *io_action_flags,
-    const struct AudioTimeStamp *in_timestamp, unsigned int in_bus_number,
-    unsigned int in_number_frames, struct AudioBufferList *io_data)
+internal OSStatus
+macos_audio_render_callback(void *int_ref_con,
+                            enum AudioUnitRenderActionFlags *io_action_flags,
+                            const struct AudioTimeStamp *in_timestamp,
+                            unsigned int in_bus_number,
+                            unsigned int in_number_frames,
+                            struct AudioBufferList *io_data)
 {
     UNUSED(io_action_flags);
     UNUSED(in_timestamp);
@@ -1133,7 +1170,8 @@ internal OSStatus macos_audio_render_callback(
     // byte sample size)
 
     u8 *data = (u8 *)io_data->mBuffers[0].mData;
-    memcpy(data, (u8 *)audio_output->data + audio_output->play_cursor,
+    memcpy(data,
+           (u8 *)audio_output->data + audio_output->play_cursor,
            region_1_size);
     memcpy(&data[region_1_size], (u8 *)audio_output->data, region_2_size);
 
@@ -1179,9 +1217,12 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output)
     uint32_t outIOBufferFrameSize = 0;
     uint32_t inIOBufferFrameSize  = 900; // TODO: make dependent on frame rate
 
-    status = AudioUnitSetProperty(
-        audio_unit, kAudioDevicePropertyBufferFrameSize, kAudioUnitScope_Global,
-        0, &inIOBufferFrameSize, sizeof(uint32_t));
+    status = AudioUnitSetProperty(audio_unit,
+                                  kAudioDevicePropertyBufferFrameSize,
+                                  kAudioUnitScope_Global,
+                                  0,
+                                  &inIOBufferFrameSize,
+                                  sizeof(uint32_t));
     if (status != noErr)
     {
         NSLog(@"Failed to set the IO buffer frame size");
@@ -1189,9 +1230,12 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output)
     }
 
 #if HANDMADE_INTERNAL
-    status = AudioUnitGetProperty(
-        audio_unit, kAudioDevicePropertyBufferFrameSize, kAudioUnitScope_Global,
-        0, &outIOBufferFrameSize, &theDataSize);
+    status = AudioUnitGetProperty(audio_unit,
+                                  kAudioDevicePropertyBufferFrameSize,
+                                  kAudioUnitScope_Global,
+                                  0,
+                                  &outIOBufferFrameSize,
+                                  &theDataSize);
 
     if (status != noErr)
     {
@@ -1218,7 +1262,9 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output)
 
     status = AudioUnitSetProperty(*audio_output->audio_unit,
                                   kAudioUnitProperty_StreamFormat,
-                                  kAudioUnitScope_Input, 0, &stream_format,
+                                  kAudioUnitScope_Input,
+                                  0,
+                                  &stream_format,
                                   sizeof(AudioStreamBasicDescription));
     assert(status == 0);
 
@@ -1227,9 +1273,12 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output)
     input.inputProc       = macos_audio_render_callback;
     input.inputProcRefCon = audio_output;
 
-    status = AudioUnitSetProperty(
-        *audio_output->audio_unit, kAudioUnitProperty_SetRenderCallback,
-        kAudioUnitScope_Global, 0, &input, sizeof(AURenderCallbackStruct));
+    status = AudioUnitSetProperty(*audio_output->audio_unit,
+                                  kAudioUnitProperty_SetRenderCallback,
+                                  kAudioUnitScope_Global,
+                                  0,
+                                  &input,
+                                  sizeof(AURenderCallbackStruct));
     assert(status == 0);
 
     status = AudioUnitInitialize(*audio_output->audio_unit);
@@ -1241,7 +1290,8 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output)
 
 internal void macos_audio_fill_buffer(struct Macos_AudioOutput *audio_output,
                                       struct G_AudioBuffer *audio_buffer,
-                                      s32 byte_to_lock, s32 bytes_to_write)
+                                      s32 byte_to_lock,
+                                      s32 bytes_to_write)
 {
     void *region_1    = (u8 *)audio_output->data + byte_to_lock;
     u32 region_1_size = bytes_to_write;
