@@ -21,7 +21,7 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
             memory->debug_platform_free_file(result.data);
         }
 #endif
-        game_state->frequency_hz = 256;
+        game_state->tone_hz = 256;
         game_state->t_sine       = 0.0f;
 
         game_state->box.width  = 50;
@@ -117,7 +117,7 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
     // Audio
     s32 volume = 3000;
     f32 wave_period =
-        (f32)audio_buffer->sample_rate_khz / game_state->frequency_hz;
+        (f32)audio_buffer->sample_rate_khz / game_state->tone_hz;
     s16 *sample_out = audio_buffer->samples;
 
     for (int i = 0; i < audio_buffer->sample_count; i++)

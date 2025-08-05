@@ -167,9 +167,40 @@ struct G_GamepadInput
     };
 };
 
+struct game_controller_input
+{
+    int is_connected;
+    int is_analog;
+    float axis_leftx_average;
+    float axis_lefty_average;
+    union
+    {
+        struct game_button_state buttons[12];
+        struct
+        {
+            struct game_button_state move_up;
+            struct game_button_state move_down;
+            struct game_button_state move_left;
+            struct game_button_state move_right;
+            struct game_button_state action_up;
+            struct game_button_state action_down;
+            struct game_button_state action_left;
+            struct game_button_state action_right;
+            struct game_button_state left_shoulder;
+            struct game_button_state right_shoulder;
+            struct game_button_state back;
+            struct game_button_state start;
+
+            // Note: all buttons must be added above this line
+            struct game_button_state terminator;
+        };
+    };
+};
+
 struct game_input
 {
     struct G_GamepadInput gamepads[4];
+    struct game_controller_input controllers[5];
 };
 
 struct game_memory
@@ -191,7 +222,9 @@ struct game_memory
 
 struct game_state
 {
-    s16 frequency_hz;
+    int x_offset;
+    int y_offset;
+    s16 tone_hz;
     f32 t_sine;
 
     struct Rectangle box;

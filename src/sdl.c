@@ -93,9 +93,9 @@ sdl_process_game_controller_button(struct game_button_state *old_state,
                                    struct game_button_state *new_state,
                                    int value)
 {
-    new_state->ended_down = value;
+    new_state->ended_pressed = value;
     new_state->half_transition_count +=
-        (new_state->ended_down == old_state->ended_down) ? 0 : 1;
+        (new_state->ended_pressed == old_state->ended_pressed) ? 0 : 1;
 }
 
 static float sdl_process_game_controller_axis(int16_t value, int16_t dead_zone)
@@ -116,8 +116,8 @@ static float sdl_process_game_controller_axis(int16_t value, int16_t dead_zone)
 static void sdl_process_key_press(struct game_button_state *new_state,
                                   int is_down)
 {
-    ASSERT(new_state->ended_down != is_down);
-    new_state->ended_down = is_down;
+    ASSERT(new_state->ended_pressed != is_down);
+    new_state->ended_pressed = is_down;
     new_state->half_transition_count++;
 }
 
@@ -224,8 +224,8 @@ int main(void)
         int button_count = ARRAY_SIZE(new_keyboard->buttons);
         for (int i = 0; i < button_count; i++)
         {
-            new_keyboard->buttons[i].ended_down =
-                old_keyboard->buttons[i].ended_down;
+            new_keyboard->buttons[i].ended_pressed =
+                old_keyboard->buttons[i].ended_pressed;
         }
 
         SDL_Event event;
@@ -431,8 +431,8 @@ int main(void)
                 new_controller->axis_leftx_average < -axis_threshold);
         }
 
-        struct game_offscreen_buffer buffer = {0};
-        buffer.memory                       = back_buffer.memory;
+        struct game_back_buffer buffer = {0};
+        buffer.data                       = back_buffer.memory;
         buffer.width                        = back_buffer.width;
         buffer.height                       = back_buffer.height;
         buffer.pitch                        = back_buffer.pitch;

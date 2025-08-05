@@ -3,73 +3,8 @@
 
 #define GAMEPAD_AXIS_DEADZONE 8000
 
-struct game_offscreen_buffer
-{
-    void *memory;
-    int width;
-    int height;
-    int pitch;
-};
-
-struct game_button_state
-{
-    int half_transition_count;
-    int ended_down;
-};
-
-struct game_controller_input
-{
-    int is_connected;
-    int is_analog;
-    float axis_leftx_average;
-    float axis_lefty_average;
-    union
-    {
-        struct game_button_state buttons[12];
-        struct
-        {
-            struct game_button_state move_up;
-            struct game_button_state move_down;
-            struct game_button_state move_left;
-            struct game_button_state move_right;
-            struct game_button_state action_up;
-            struct game_button_state action_down;
-            struct game_button_state action_left;
-            struct game_button_state action_right;
-            struct game_button_state left_shoulder;
-            struct game_button_state right_shoulder;
-            struct game_button_state back;
-            struct game_button_state start;
-
-            // Note: all buttons must be added above this line
-            struct game_button_state terminator;
-        };
-    };
-};
-
-struct game_input
-{
-    struct game_controller_input controllers[5];
-};
-
-struct game_state
-{
-    int x_offset;
-    int y_offset;
-    int tone_hz;
-};
-
-struct game_memory
-{
-    uint64_t permanent_size;
-    void *permanent;
-    uint64_t transient_size;
-    void *transient;
-    int is_initialized;
-};
-
 static void game_update_and_render(struct game_memory *memory,
-                                   struct game_offscreen_buffer *buffer,
+                                   struct game_back_buffer *buffer,
                                    struct game_input *input)
 {
     ASSERT((&input->controllers[0].terminator -
@@ -88,7 +23,7 @@ static void game_update_and_render(struct game_memory *memory,
         memory->is_initialized = 1;
     }
 
-    uint8_t *row = (uint8_t *)buffer->memory;
+    uint8_t *row = (uint8_t *)buffer->data;
     for (int y = 0; y < buffer->height; y++)
     {
         uint32_t *pixel = (uint32_t *)row;
@@ -118,19 +53,19 @@ static void game_update_and_render(struct game_memory *memory,
         }
         else
         {
-            if (controller->move_down.ended_down)
+            if (controller->move_down.ended_pressed)
             {
                 state->y_offset -= 1;
             }
-            if (controller->move_up.ended_down)
+            if (controller->move_up.ended_pressed)
             {
                 state->y_offset += 1;
             }
-            if (controller->move_left.ended_down)
+            if (controller->move_left.ended_pressed)
             {
                 state->x_offset += 1;
             }
-            if (controller->move_right.ended_down)
+            if (controller->move_right.ended_pressed)
             {
                 state->x_offset -= 1;
             }
