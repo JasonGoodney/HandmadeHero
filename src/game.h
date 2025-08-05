@@ -205,7 +205,7 @@ internal inline struct game_controller_input *get_controller(struct game_input *
     return controller;
 }
 
-internal inline f32 normalize_gamepad_axis_input(s16 value, s16 range, s16 mid, s16 dead_zone) {
+internal inline f32 normalize_gamepad_axis_input(s16 value, s32 range, s32 mid, s16 dead_zone) {
     float result = 0;
     if (value < mid - dead_zone)
     {
@@ -233,7 +233,7 @@ internal inline void process_gamepad_button_input(struct game_button_state *old_
 {
     new_state->ended_pressed = is_pressed;
     new_state->half_transition_count +=
-        old_state->ended_pressed == new_state->ended_pressed ? 0 : 1;
+        (new_state->ended_pressed == old_state->ended_pressed) ? 0 : 1;
 }
 
 #endif // GAME_H

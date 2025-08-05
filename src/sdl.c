@@ -87,39 +87,6 @@ void sdl_audio_device_callback(void *userdata,
     }
 }
 
-static void
-sdl_process_game_controller_button(struct game_button_state *old_state,
-                                   struct game_button_state *new_state,
-                                   int value)
-{
-    new_state->ended_pressed = value;
-    new_state->half_transition_count +=
-        (new_state->ended_pressed == old_state->ended_pressed) ? 0 : 1;
-}
-
-static float sdl_process_game_controller_axis(int16_t value, int16_t dead_zone)
-{
-    float result = 0;
-    if (value < -dead_zone)
-    {
-        result = (float)((value + dead_zone) / (32768.0f - dead_zone));
-    }
-    else if (value > dead_zone)
-    {
-
-        result = (float)((value - dead_zone) / (32767.0f - dead_zone));
-    }
-    return result;
-}
-
-static void sdl_process_key_press(struct game_button_state *new_state,
-                                  int is_down)
-{
-    ASSERT(new_state->ended_pressed != is_down);
-    new_state->ended_pressed = is_down;
-    new_state->half_transition_count++;
-}
-
 static int sdl_get_window_refresh_rate(SDL_Window *window)
 {
     int default_rate            = 60;
@@ -259,56 +226,56 @@ int main(void)
                 {
                     if (key == SDLK_W)
                     {
-                        sdl_process_key_press(&new_keyboard->move_up, is_down);
+                        process_keyboard_key_input(&new_keyboard->move_up, is_down);
                     }
                     else if (key == SDLK_S)
                     {
-                        sdl_process_key_press(&new_keyboard->move_down,
+                        process_keyboard_key_input(&new_keyboard->move_down,
                                               is_down);
                     }
                     else if (key == SDLK_A)
                     {
-                        sdl_process_key_press(&new_keyboard->move_left,
+                        process_keyboard_key_input(&new_keyboard->move_left,
                                               is_down);
                     }
                     else if (key == SDLK_D)
                     {
-                        sdl_process_key_press(&new_keyboard->move_right,
+                        process_keyboard_key_input(&new_keyboard->move_right,
                                               is_down);
                     }
                     else if (key == SDLK_I)
                     {
-                        sdl_process_key_press(&new_keyboard->action_up,
+                        process_keyboard_key_input(&new_keyboard->action_up,
                                               is_down);
                     }
                     else if (key == SDLK_K)
                     {
-                        sdl_process_key_press(&new_keyboard->action_down,
+                        process_keyboard_key_input(&new_keyboard->action_down,
                                               is_down);
                     }
                     else if (key == SDLK_J)
                     {
-                        sdl_process_key_press(&new_keyboard->action_left,
+                        process_keyboard_key_input(&new_keyboard->action_left,
                                               is_down);
                     }
                     else if (key == SDLK_L)
                     {
-                        sdl_process_key_press(&new_keyboard->action_right,
+                        process_keyboard_key_input(&new_keyboard->action_right,
                                               is_down);
                     }
                     else if (key == SDLK_Q)
                     {
-                        sdl_process_key_press(&new_keyboard->shoulder_left,
+                        process_keyboard_key_input(&new_keyboard->shoulder_left,
                                               is_down);
                     }
                     else if (key == SDLK_E)
                     {
-                        sdl_process_key_press(&new_keyboard->shoulder_right,
+                        process_keyboard_key_input(&new_keyboard->shoulder_right,
                                               is_down);
                     }
                     else if (key == SDLK_BACKSPACE)
                     {
-                        sdl_process_key_press(&new_keyboard->back, is_down);
+                        process_keyboard_key_input(&new_keyboard->back, is_down);
                     }
                 }
             }
@@ -316,10 +283,8 @@ int main(void)
 
         for (int i = 0; i < MAX_GAMEPADS; i++)
         {
-            if (gamepad_handles[i] == 0)
-            {
-                continue;
-            }
+            if (gamepad_handles[i] == 0) continue;
+
             struct game_controller_input *old_controller =
                 get_controller(old_input, i + 1);
             struct game_controller_input *new_controller =
@@ -327,42 +292,39 @@ int main(void)
 
             SDL_Gamepad *gamepad         = gamepad_handles[i];
             new_controller->is_connected = SDL_GamepadConnected(gamepad);
-            if (!new_controller->is_connected)
-            {
-                continue;
-            }
+            if (!new_controller->is_connected) continue;
 
-            sdl_process_game_controller_button(
+            process_gamepad_button_input(
                 &old_controller->action_down,
                 &new_controller->action_down,
                 SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_SOUTH));
-            sdl_process_game_controller_button(
+            process_gamepad_button_input(
                 &old_controller->action_up,
                 &new_controller->action_up,
                 SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_NORTH));
-            sdl_process_game_controller_button(
+            process_gamepad_button_input(
                 &old_controller->action_left,
                 &new_controller->action_left,
                 SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_WEST));
-            sdl_process_game_controller_button(
+            process_gamepad_button_input(
                 &old_controller->action_right,
                 &new_controller->action_right,
                 SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_EAST));
-            sdl_process_game_controller_button(
+            process_gamepad_button_input(
                 &old_controller->shoulder_left,
                 &new_controller->shoulder_left,
                 SDL_GetGamepadButton(gamepad,
                                      SDL_GAMEPAD_BUTTON_LEFT_SHOULDER));
-            sdl_process_game_controller_button(
+            process_gamepad_button_input(
                 &old_controller->shoulder_right,
                 &new_controller->shoulder_right,
                 SDL_GetGamepadButton(gamepad,
                                      SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER));
-            sdl_process_game_controller_button(
+            process_gamepad_button_input(
                 &old_controller->back,
                 &new_controller->back,
                 SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_BACK));
-            sdl_process_game_controller_button(
+            process_gamepad_button_input(
                 &old_controller->start,
                 &new_controller->start,
                 SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_START));
@@ -372,11 +334,9 @@ int main(void)
             int16_t axis_lefty =
                 SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFTY);
             new_controller->axis_leftx_average =
-                sdl_process_game_controller_axis(axis_leftx,
-                                                 GAMEPAD_AXIS_DEADZONE);
+                normalize_gamepad_axis_input(axis_leftx, 32768, 0, GAMEPAD_AXIS_DEADZONE);
             new_controller->axis_lefty_average =
-                sdl_process_game_controller_axis(axis_lefty,
-                                                 GAMEPAD_AXIS_DEADZONE);
+                normalize_gamepad_axis_input(axis_lefty, 32768, 0, GAMEPAD_AXIS_DEADZONE);
 
             new_controller->is_analog_movement =
                 new_controller->axis_leftx_average != 0.0f ||
@@ -403,20 +363,20 @@ int main(void)
             }
 
             float axis_threshold = 0.5f;
-            sdl_process_game_controller_button(
+            process_gamepad_button_input(
                 &old_controller->move_down,
                 &new_controller->move_down,
                 new_controller->axis_lefty_average > axis_threshold);
-            sdl_process_game_controller_button(
+            process_gamepad_button_input(
                 &old_controller->move_right,
                 &new_controller->move_right,
                 new_controller->axis_leftx_average > axis_threshold);
 
-            sdl_process_game_controller_button(
+            process_gamepad_button_input(
                 &old_controller->move_up,
                 &new_controller->move_up,
                 new_controller->axis_lefty_average < -axis_threshold);
-            sdl_process_game_controller_button(
+            process_gamepad_button_input(
                 &old_controller->move_left,
                 &new_controller->move_left,
                 new_controller->axis_leftx_average < -axis_threshold);

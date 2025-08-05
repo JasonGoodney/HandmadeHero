@@ -44,8 +44,8 @@ static void game_update_and_render(struct game_memory *memory,
         struct game_controller_input *controller = &input->controllers[i];
         if (controller->is_analog_movement)
         {
-            state->x_offset -= (int)(2.0f * controller->axis_leftx_average);
-            // state->y_offset -= (int)(2.0f * controller->axis_lefty_average);
+            state->x_offset -= (int)(8.0f * controller->axis_leftx_average);
+            state->y_offset -= (int)(8.0f * controller->axis_lefty_average);
             state->tone_hz =
                 256 + (int)(128.0f * controller->axis_lefty_average);
         }
@@ -53,19 +53,19 @@ static void game_update_and_render(struct game_memory *memory,
         {
             if (controller->move_down.ended_pressed)
             {
-                state->y_offset -= 1;
+                state->y_offset -= 8;
             }
             if (controller->move_up.ended_pressed)
             {
-                state->y_offset += 1;
+                state->y_offset += 8;
             }
             if (controller->move_left.ended_pressed)
             {
-                state->x_offset += 1;
+                state->x_offset += 8;
             }
             if (controller->move_right.ended_pressed)
             {
-                state->x_offset -= 1;
+                state->x_offset -= 8;
             }
         }
     }
