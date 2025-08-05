@@ -25,7 +25,7 @@ global BOOL RUNNING;
 @interface HandmadeWindowDelegate : NSObject <NSWindowDelegate>
 
 @property(nonatomic, assign) struct lib_game *game;
-@property(nonatomic, assign) struct G_Memory *memory;
+@property(nonatomic, assign) struct game_memory *memory;
 @property(nonatomic, assign) struct game_back_buffer *back_buffer;
 @property(nonatomic, assign) struct game_audio_buffer *audio_buffer;
 @property(nonatomic, assign) struct G_Input *input;
@@ -442,7 +442,7 @@ int main()
 #endif
 
     struct macos_state macos_state = {0};
-    struct G_Memory memory         = {0};
+    struct game_memory memory         = {0};
     memory.permanent_size          = MEGABYTES(64);
     memory.transient_size          = GIGABYTES(2);
     memory.permanent =

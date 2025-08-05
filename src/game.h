@@ -172,7 +172,7 @@ struct G_Input
     struct G_GamepadInput gamepads[4];
 };
 
-struct G_Memory
+struct game_memory
 {
     b32 is_initialized;
 
@@ -202,7 +202,7 @@ struct G_State
 
 // Service that the game provides to the platform layer
 #define GAME_UPDATE_AND_RENDER(func_name)                                      \
-    void func_name(struct G_Memory *memory,                                    \
+    void func_name(struct game_memory *memory,                                    \
                    struct game_back_buffer *buffer,                                \
                    struct game_audio_buffer *audio_buffer,                         \
                    struct G_Input *input)
