@@ -65,9 +65,9 @@ internal void macos_device_callback(void *context, IOReturn result,
 
 // Render
 internal CGRect macos_get_window_rect(const NSWindow *window);
-internal void macos_buffer_resize(struct G_BackBuffer *buffer, int width,
+internal void macos_buffer_resize(struct game_back_buffer *buffer, int width,
                                   int height);
-internal void macos_window_display(struct G_BackBuffer *buffer,
+internal void macos_window_display(struct game_back_buffer *buffer,
                                    const NSWindow *window);
 
 #endif // PLATFORM_MACOS_H

@@ -26,7 +26,7 @@ global BOOL RUNNING;
 
 @property(nonatomic, assign) struct lib_game *game;
 @property(nonatomic, assign) struct G_Memory *memory;
-@property(nonatomic, assign) struct G_BackBuffer *back_buffer;
+@property(nonatomic, assign) struct game_back_buffer *back_buffer;
 @property(nonatomic, assign) struct game_audio_buffer *audio_buffer;
 @property(nonatomic, assign) struct G_Input *input;
 
@@ -232,7 +232,7 @@ internal void macos_playback_input(struct macos_state *state,
 }
 
 internal void macos_debug_draw_vertical_line(
-    struct G_BackBuffer *back_buffer, int x, int top, int bottom, u32 color)
+    struct game_back_buffer *back_buffer, int x, int top, int bottom, u32 color)
 {
     u8 *pixel = (u8 *)back_buffer->data + (top * back_buffer->pitch) +
                 (x * back_buffer->bytes_per_pixel);
@@ -244,7 +244,7 @@ internal void macos_debug_draw_vertical_line(
 }
 
 internal void
-macos_draw_audio_buffer_time_marker(struct G_BackBuffer *back_buffer,
+macos_draw_audio_buffer_time_marker(struct game_back_buffer *back_buffer,
                                     struct Macos_AudioOutput *audio_output,
                                     f32 coeff,
                                     int pad_x,
@@ -262,7 +262,7 @@ macos_draw_audio_buffer_time_marker(struct G_BackBuffer *back_buffer,
 }
 
 internal void
-macos_debug_sync_display(struct G_BackBuffer *back_buffer,
+macos_debug_sync_display(struct game_back_buffer *back_buffer,
                          struct macos_debug_time_marker *time_markers,
                          size_t time_markers_size,
                          struct Macos_AudioOutput *audio_output,
@@ -413,7 +413,7 @@ internal void macos_unload_game_code(struct lib_game *game)
 int main()
 {
     // begin game setup
-    struct G_BackBuffer back_buffer = {0};
+    struct game_back_buffer back_buffer = {0};
     back_buffer.bytes_per_pixel     = 4;
 
     const u32 monitor_refresh_rate_hz = 60;
@@ -856,7 +856,7 @@ internal CGRect macos_get_window_rect(const NSWindow *window)
     return window.contentView.bounds;
 }
 
-internal void macos_window_display(struct G_BackBuffer *buffer,
+internal void macos_window_display(struct game_back_buffer *buffer,
                                    const NSWindow *window)
 {
 
@@ -883,7 +883,7 @@ internal void macos_window_display(struct G_BackBuffer *buffer,
 }
 
 internal void
-macos_buffer_resize(struct G_BackBuffer *buffer, int width, int height)
+macos_buffer_resize(struct game_back_buffer *buffer, int width, int height)
 {
     if (buffer->data)
     {

@@ -112,7 +112,7 @@ typedef DEBUG_PLATFORM_WRITE_FILE(debug_platform_write_file_f);
 
 #endif
 
-struct G_BackBuffer
+struct game_back_buffer
 {
     int width;
     int height;
@@ -203,7 +203,7 @@ struct G_State
 // Service that the game provides to the platform layer
 #define GAME_UPDATE_AND_RENDER(func_name)                                      \
     void func_name(struct G_Memory *memory,                                    \
-                   struct G_BackBuffer *buffer,                                \
+                   struct game_back_buffer *buffer,                                \
                    struct game_audio_buffer *audio_buffer,                         \
                    struct G_Input *input)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render_f);
