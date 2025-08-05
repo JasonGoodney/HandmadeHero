@@ -121,14 +121,14 @@ struct G_BackBuffer
     u8 bytes_per_pixel;
 };
 
-struct G_AudioBuffer
+struct game_audio_buffer
 {
     s32 sample_rate_khz;
     s32 sample_count;
     s16 *samples;
 };
 
-struct GameButtonState
+struct game_button_state
 {
     s32 half_transition_count;
     b32 ended_pressed;
@@ -149,20 +149,20 @@ struct G_GamepadInput
 
     union
     {
-        struct GameButtonState buttons[10];
+        struct game_button_state buttons[10];
 
         struct
         {
-            struct GameButtonState face_top;
-            struct GameButtonState face_bottom;
-            struct GameButtonState face_left;
-            struct GameButtonState face_right;
-            struct GameButtonState dpad_top;
-            struct GameButtonState dpad_bottom;
-            struct GameButtonState dpad_left;
-            struct GameButtonState dpad_right;
-            struct GameButtonState left_shoulder;
-            struct GameButtonState right_shoulder;
+            struct game_button_state face_top;
+            struct game_button_state face_bottom;
+            struct game_button_state face_left;
+            struct game_button_state face_right;
+            struct game_button_state dpad_top;
+            struct game_button_state dpad_bottom;
+            struct game_button_state dpad_left;
+            struct game_button_state dpad_right;
+            struct game_button_state left_shoulder;
+            struct game_button_state right_shoulder;
         };
     };
 };
@@ -204,7 +204,7 @@ struct G_State
 #define GAME_UPDATE_AND_RENDER(func_name)                                      \
     void func_name(struct G_Memory *memory,                                    \
                    struct G_BackBuffer *buffer,                                \
-                   struct G_AudioBuffer *audio_buffer,                         \
+                   struct game_audio_buffer *audio_buffer,                         \
                    struct G_Input *input)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render_f);
 GAME_UPDATE_AND_RENDER(stub_game_update_and_render) {}

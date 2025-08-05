@@ -27,7 +27,7 @@ global BOOL RUNNING;
 @property(nonatomic, assign) struct lib_game *game;
 @property(nonatomic, assign) struct G_Memory *memory;
 @property(nonatomic, assign) struct G_BackBuffer *back_buffer;
-@property(nonatomic, assign) struct G_AudioBuffer *audio_buffer;
+@property(nonatomic, assign) struct game_audio_buffer *audio_buffer;
 @property(nonatomic, assign) struct G_Input *input;
 
 @end
@@ -302,8 +302,8 @@ macos_debug_sync_display(struct G_BackBuffer *back_buffer,
 }
 #endif
 
-internal void macos_process_gamepad_button(struct GameButtonState *prev_state,
-                                           struct GameButtonState *curr_state,
+internal void macos_process_gamepad_button(struct game_button_state *prev_state,
+                                           struct game_button_state *curr_state,
                                            b32 curr_is_pressed)
 {
     curr_state->ended_pressed = curr_is_pressed;
@@ -427,7 +427,7 @@ int main()
     struct G_Input *curr_input = &inputs[0];
     struct G_Input *prev_input = &inputs[1];
 
-    struct G_AudioBuffer audio_buffer     = {0};
+    struct game_audio_buffer audio_buffer   = {0};
     struct Macos_AudioOutput audio_output = {0};
     macos_audio_create(&audio_output);
 
@@ -1289,7 +1289,7 @@ internal void macos_audio_create(struct Macos_AudioOutput *audio_output)
 }
 
 internal void macos_audio_fill_buffer(struct Macos_AudioOutput *audio_output,
-                                      struct G_AudioBuffer *audio_buffer,
+                                      struct game_audio_buffer *audio_buffer,
                                       s32 byte_to_lock,
                                       s32 bytes_to_write)
 {
