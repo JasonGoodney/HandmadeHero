@@ -189,7 +189,7 @@ struct game_memory
 #endif
 };
 
-struct G_State
+struct game_state
 {
     s16 frequency_hz;
     f32 t_sine;

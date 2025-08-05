@@ -4,9 +4,9 @@
 // TODO: handle endianess for pixel buffer based on OS
 GAME_UPDATE_AND_RENDER(game_update_and_render)
 {
-    ASSERT(sizeof(struct G_State) <= memory->permanent_size);
+    ASSERT(sizeof(struct game_state) <= memory->permanent_size);
 
-    struct G_State *game_state = (struct G_State *)memory->permanent;
+    struct game_state *game_state = (struct game_state *)memory->permanent;
 
     if (!memory->is_initialized)
     {
