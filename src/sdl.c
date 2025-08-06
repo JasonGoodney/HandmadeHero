@@ -1,14 +1,14 @@
 #include <SDL3/SDL.h>
-#include <math.h>
-#include <sys/mman.h>
 #include <dlfcn.h>
-#include <sys/_types/_ssize_t.h>
-#include <sys/stat.h>
-#include <sys/fcntl.h>
-#include <unistd.h>
+#include <math.h>
 #include <stdlib.h>
+#include <sys/_types/_ssize_t.h>
+#include <sys/fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
-#include "game.h"
+#include "handmade.h"
 
 SDL_Gamepad *gamepad_handles[MAX_GAMEPADS];
 
@@ -63,11 +63,12 @@ static void sdl_resize_window(SDL_Renderer *renderer,
         SDL_DestroyTexture(buffer->texture);
     }
 
-    buffer->texture = SDL_CreateTexture(renderer,
-                                        SDL_PIXELFORMAT_ABGR8888, // macos format
-                                        SDL_TEXTUREACCESS_STREAMING,
-                                        width,
-                                        height);
+    buffer->texture =
+        SDL_CreateTexture(renderer,
+                          SDL_PIXELFORMAT_ABGR8888, // macos format
+                          SDL_TEXTUREACCESS_STREAMING,
+                          width,
+                          height);
 
     buffer->memory = mmap(0,
                           width * height * bytes_per_pixel,
@@ -172,8 +173,8 @@ internal time_t sdl_get_last_file_write(char *path)
 
 internal struct lib_game sdl_load_game_code()
 {
-    char *lib_path = "libgame.dylib";
-    char *tmp_path = "tmp_libgame.dylib";
+    char *lib_path = "libhandmade.dylib";
+    char *tmp_path = "tmp_libhandmade.dylib";
 
     struct lib_game game = {0};
 
@@ -203,7 +204,7 @@ internal struct lib_game sdl_load_game_code()
     {
         game.update_and_render = stub_game_update_and_render;
     }
-    printf("finished loading libgame.dylib\n");
+    printf("finished loading libhandmade.dylib\n");
     return game;
 }
 
@@ -221,7 +222,7 @@ internal void sdl_unload_game_code(struct lib_game *game)
 
 #if HANDMADE_INTERNAL
 internal void sdl_record_input(struct sdl_state *state,
-                                 struct game_input *input)
+                               struct game_input *input)
 {
     size_t bytes_written =
         fwrite(input, sizeof(char), sizeof(*input), state->recording_handle);
@@ -250,7 +251,7 @@ internal void sdl_end_recording_input(struct sdl_state *state)
 }
 
 internal void sdl_begin_input_playback(struct sdl_state *state, s32 index)
-{                            
+{
     if (state->replay_memory_block)
     {
         state->playback_handle = state->replay_file_handle;
@@ -268,7 +269,7 @@ internal void sdl_end_input_playback(struct sdl_state *state)
 }
 
 internal void sdl_playback_input(struct sdl_state *state,
-                                   struct game_input *input)
+                                 struct game_input *input)
 {
     size_t bytes_read =
         fread(input, sizeof(char), sizeof(*input), state->playback_handle);
@@ -285,9 +286,9 @@ int main(void)
     int game_update_hz             = 30;
     float target_seconds_per_frame = 1.0f / (float)game_update_hz;
 
-    struct sdl_state platform_state = {0};
+    struct sdl_state platform_state         = {0};
     struct sdl_offscreen_buffer back_buffer = {0};
-    
+
 #if HANDMADE_INTERNAL
     void *base_address = (void *)TERABYTES(2);
 #else
@@ -336,11 +337,11 @@ int main(void)
     }
 
     platform_state.replay_memory_block = mmap(0,
-                                           game_memory.permanent_size,
-                                           PROT_READ | PROT_WRITE,
-                                           MAP_PRIVATE,
-                                           file_descriptor,
-                                           0);
+                                              game_memory.permanent_size,
+                                              PROT_READ | PROT_WRITE,
+                                              MAP_PRIVATE,
+                                              file_descriptor,
+                                              0);
     platform_state.replay_file_handle  = fopen(filename, "r+");
     fseek(platform_state.replay_file_handle,
           (int)platform_state.memory_block_size,
@@ -351,11 +352,11 @@ int main(void)
         exit(1);
     }
 
-// #if HANDMADE_INTERNAL
-//     memory.debug_platform_free_file  = debug_platform_free_file;
-//     memory.debug_platform_read_file  = debug_platform_read_file;
-//     memory.debug_platform_write_file = debug_platform_write_file;
-// #endif
+    // #if HANDMADE_INTERNAL
+    //     memory.debug_platform_free_file  = debug_platform_free_file;
+    //     memory.debug_platform_read_file  = debug_platform_read_file;
+    //     memory.debug_platform_write_file = debug_platform_write_file;
+    // #endif
 
     struct lib_game game = sdl_load_game_code();
     // end game setup
@@ -399,7 +400,7 @@ int main(void)
     uint64_t last_counter    = SDL_GetPerformanceCounter();
     while (running)
     {
-        time_t mtime = sdl_get_last_file_write("libgame.dylib");
+        time_t mtime = sdl_get_last_file_write("libhandmade.dylib");
         if (game.last_modification_time < mtime)
         {
             printf("loading updated game library\n");
@@ -425,33 +426,33 @@ int main(void)
         SDL_Event event;
         while (SDL_PollEvent(&event))
         {
-            #if HANDMADE_INTERNAL
-                if (event.type == SDL_EVENT_KEY_DOWN)
+#if HANDMADE_INTERNAL
+            if (event.type == SDL_EVENT_KEY_DOWN)
+            {
+                if (event.key.key == SDLK_P)
                 {
-                    if (event.key.key == SDLK_P)
+                    if (platform_state.is_playing_back)
                     {
-                        if (platform_state.is_playing_back)
-                        {
-                            sdl_end_input_playback(&platform_state);
-                            break;
-                        }
-
-                        if (platform_state.is_recording)
-                        {
-                            sdl_end_recording_input(&platform_state);
-                            sdl_begin_input_playback(&platform_state, 1);
-                            break;
-                        }
-                        else
-                        {
-                            sdl_begin_recording_input(&platform_state, 1);
-                        }
+                        sdl_end_input_playback(&platform_state);
+                        break;
                     }
-                    if (event.key.key == SDLK_ESCAPE)
+
+                    if (platform_state.is_recording)
                     {
-                        running = 0;
+                        sdl_end_recording_input(&platform_state);
+                        sdl_begin_input_playback(&platform_state, 1);
+                        break;
+                    }
+                    else
+                    {
+                        sdl_begin_recording_input(&platform_state, 1);
                     }
                 }
+                if (event.key.key == SDLK_ESCAPE)
+                {
+                    running = 0;
+                }
+            }
 #endif
             if (event.type == SDL_EVENT_QUIT)
             {
@@ -489,56 +490,58 @@ int main(void)
                 {
                     if (key == SDLK_W)
                     {
-                        process_keyboard_key_input(&new_keyboard->move_up, is_down);
+                        process_keyboard_key_input(&new_keyboard->move_up,
+                                                   is_down);
                     }
                     else if (key == SDLK_S)
                     {
                         process_keyboard_key_input(&new_keyboard->move_down,
-                                              is_down);
+                                                   is_down);
                     }
                     else if (key == SDLK_A)
                     {
                         process_keyboard_key_input(&new_keyboard->move_left,
-                                              is_down);
+                                                   is_down);
                     }
                     else if (key == SDLK_D)
                     {
                         process_keyboard_key_input(&new_keyboard->move_right,
-                                              is_down);
+                                                   is_down);
                     }
                     else if (key == SDLK_I)
                     {
                         process_keyboard_key_input(&new_keyboard->action_up,
-                                              is_down);
+                                                   is_down);
                     }
                     else if (key == SDLK_K)
                     {
                         process_keyboard_key_input(&new_keyboard->action_down,
-                                              is_down);
+                                                   is_down);
                     }
                     else if (key == SDLK_J)
                     {
                         process_keyboard_key_input(&new_keyboard->action_left,
-                                              is_down);
+                                                   is_down);
                     }
                     else if (key == SDLK_L)
                     {
                         process_keyboard_key_input(&new_keyboard->action_right,
-                                              is_down);
+                                                   is_down);
                     }
                     else if (key == SDLK_Q)
                     {
                         process_keyboard_key_input(&new_keyboard->shoulder_left,
-                                              is_down);
+                                                   is_down);
                     }
                     else if (key == SDLK_E)
                     {
-                        process_keyboard_key_input(&new_keyboard->shoulder_right,
-                                              is_down);
+                        process_keyboard_key_input(
+                            &new_keyboard->shoulder_right, is_down);
                     }
                     else if (key == SDLK_BACKSPACE)
                     {
-                        process_keyboard_key_input(&new_keyboard->back, is_down);
+                        process_keyboard_key_input(&new_keyboard->back,
+                                                   is_down);
                     }
                 }
             }
@@ -546,7 +549,8 @@ int main(void)
 
         for (int i = 0; i < MAX_GAMEPADS; i++)
         {
-            if (gamepad_handles[i] == 0) continue;
+            if (gamepad_handles[i] == 0)
+                continue;
 
             struct game_controller_input *old_controller =
                 get_controller(old_input, i + 1);
@@ -555,7 +559,8 @@ int main(void)
 
             SDL_Gamepad *gamepad         = gamepad_handles[i];
             new_controller->is_connected = SDL_GamepadConnected(gamepad);
-            if (!new_controller->is_connected) continue;
+            if (!new_controller->is_connected)
+                continue;
 
             process_gamepad_button_input(
                 &old_controller->action_down,
@@ -597,9 +602,9 @@ int main(void)
             int16_t axis_lefty =
                 SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFTY);
             new_controller->axis_leftx_average =
-                normalize_gamepad_axis_input(axis_leftx, 32768, 0, GAMEPAD_AXIS_DEADZONE);
+                normalize_gamepad_axis_input(axis_leftx, 32768, 0, 8000);
             new_controller->axis_lefty_average =
-                normalize_gamepad_axis_input(axis_lefty, 32768, 0, GAMEPAD_AXIS_DEADZONE);
+                normalize_gamepad_axis_input(axis_lefty, 32768, 0, 8000);
 
             new_controller->is_analog_movement =
                 new_controller->axis_leftx_average != 0.0f ||
@@ -607,42 +612,42 @@ int main(void)
             if (SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_UP))
             {
                 new_controller->axis_lefty_average = -1.0f;
-                new_controller->is_analog_movement          = 0;
+                new_controller->is_analog_movement = 0;
             }
             if (SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_DOWN))
             {
                 new_controller->axis_lefty_average = 1.0f;
-                new_controller->is_analog_movement          = 0;
+                new_controller->is_analog_movement = 0;
             }
             if (SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_LEFT))
             {
                 new_controller->axis_leftx_average = -1.0f;
-                new_controller->is_analog_movement          = 0;
+                new_controller->is_analog_movement = 0;
             }
             if (SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_RIGHT))
             {
                 new_controller->axis_leftx_average = 1.0f;
-                new_controller->is_analog_movement          = 0;
+                new_controller->is_analog_movement = 0;
             }
 
             float axis_threshold = 0.5f;
-            process_gamepad_button_input(
-                &old_controller->move_down,
-                &new_controller->move_down,
-                new_controller->axis_lefty_average > axis_threshold);
-            process_gamepad_button_input(
-                &old_controller->move_right,
-                &new_controller->move_right,
-                new_controller->axis_leftx_average > axis_threshold);
+            process_gamepad_button_input(&old_controller->move_down,
+                                         &new_controller->move_down,
+                                         new_controller->axis_lefty_average >
+                                             axis_threshold);
+            process_gamepad_button_input(&old_controller->move_right,
+                                         &new_controller->move_right,
+                                         new_controller->axis_leftx_average >
+                                             axis_threshold);
 
-            process_gamepad_button_input(
-                &old_controller->move_up,
-                &new_controller->move_up,
-                new_controller->axis_lefty_average < -axis_threshold);
-            process_gamepad_button_input(
-                &old_controller->move_left,
-                &new_controller->move_left,
-                new_controller->axis_leftx_average < -axis_threshold);
+            process_gamepad_button_input(&old_controller->move_up,
+                                         &new_controller->move_up,
+                                         new_controller->axis_lefty_average <
+                                             -axis_threshold);
+            process_gamepad_button_input(&old_controller->move_left,
+                                         &new_controller->move_left,
+                                         new_controller->axis_leftx_average <
+                                             -axis_threshold);
         }
 
 #if HANDMADE_INTERNAL
@@ -657,11 +662,11 @@ int main(void)
 #endif
 
         struct game_back_buffer buffer = {0};
-        buffer.data = back_buffer.memory;
-        buffer.width = back_buffer.width;
-        buffer.height = back_buffer.height;
-        buffer.pitch = back_buffer.pitch;
-        buffer.bytes_per_pixel = 4;
+        buffer.data                    = back_buffer.memory;
+        buffer.width                   = back_buffer.width;
+        buffer.height                  = back_buffer.height;
+        buffer.pitch                   = back_buffer.pitch;
+        buffer.bytes_per_pixel         = 4;
         game.update_and_render(&game_memory, &buffer, NULL, new_input);
 
         struct game_input *tmp_input = new_input;
@@ -711,7 +716,7 @@ int main(void)
 #endif
 
         last_counter = end_counter;
-    } 
+    }
     // end run loop
 
     // exit cleanup

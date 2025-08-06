@@ -49,13 +49,13 @@ mkdir -p ./build/bin/macos
 SRC_DIR="../../../src/"
 
 pushd ./build/bin/
-if ! $CC $CFLAGS $D_FLAGS $OSX_LD_FLAGS -fPIC -shared -o libgame.dylib "../../src/game.c" ; then
+if ! $CC $CFLAGS $D_FLAGS $OSX_LD_FLAGS -fPIC -shared -o libhandmade.dylib "../../src/handmade.c" ; then
     exit 1
 fi
 popd
 
 pushd ./build/bin/macos
-if ! $CC $CFLAGS $D_FLAGS $OSX_LD_FLAGS -o handmade ../libgame.dylib "../../../src/macos.m" ; then
+if ! $CC $CFLAGS $D_FLAGS $OSX_LD_FLAGS -o handmade ../libhandmade.dylib "../../../src/macos.m" ; then
     exit 1
 fi
 popd

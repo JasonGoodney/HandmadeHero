@@ -1,7 +1,7 @@
 #ifndef PLATFORM_MACOS_H
 #define PLATFORM_MACOS_H
 
-#include "game.h"
+#include "handmade.h"
 
 #include <AppKit/NSWindow.h>
 #include <AudioToolbox/AudioToolbox.h>

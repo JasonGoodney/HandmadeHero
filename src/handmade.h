@@ -32,11 +32,7 @@ typedef double f64;
 #define local static
 #define global static
 
-#define false 0
-#define true 1
-
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
-#define GAMEPAD_AXIS_DEADZONE 8000
 #define MAX_GAMEPADS 4
 #define PI_F32 3.14159265359f
 #define UNUSED(x) (void)(x)

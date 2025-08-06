@@ -17,7 +17,7 @@
 #include <sys/stat.h>
 #include <time.h>
 
-#include "game.h"
+#include "handmade.h"
 #include "macos.h"
 
 global BOOL RUNNING;
@@ -304,8 +304,6 @@ macos_debug_sync_display(struct game_back_buffer *back_buffer,
 }
 #endif
 
-
-
 internal f32 macos_get_milliseconds_elapsed(u64 start,
                                             u64 end,
                                             mach_timebase_info_data_t *timebase)
@@ -359,8 +357,8 @@ internal time_t macos_get_last_file_write(char *path)
 
 internal struct lib_game macos_load_game_code()
 {
-    char *lib_path = "libgame.dylib";
-    char *tmp_path = "tmp_libgame.dylib";
+    char *lib_path = "libhandmade.dylib";
+    char *tmp_path = "tmp_libhandmade.dylib";
 
     struct lib_game game = {0};
 
@@ -390,7 +388,7 @@ internal struct lib_game macos_load_game_code()
     {
         game.update_and_render = stub_game_update_and_render;
     }
-    printf("finished loading libgame.dylib\n");
+    printf("finished loading libhandmade.dylib\n");
     return game;
 }
 
@@ -410,15 +408,15 @@ int main(void)
 {
     // begin game setup
     struct game_back_buffer back_buffer = {0};
-    back_buffer.bytes_per_pixel     = 4;
+    back_buffer.bytes_per_pixel         = 4;
 
     const u32 monitor_refresh_rate_hz = 60;
     const u32 game_refresh_rate_hz    = monitor_refresh_rate_hz / 2;
     f32 target_ms_per_frame           = 1.0E3f / game_refresh_rate_hz;
 
-    struct macos_gamepad mac_gamepad = {0};
-    mac_gamepad.analog_stick_left_x.state = 128;
-    mac_gamepad.analog_stick_left_y.state = 128;
+    struct macos_gamepad mac_gamepad       = {0};
+    mac_gamepad.analog_stick_left_x.state  = 128;
+    mac_gamepad.analog_stick_left_y.state  = 128;
     mac_gamepad.analog_stick_right_x.state = 128;
     mac_gamepad.analog_stick_right_y.state = 128;
     macos_device_register(&mac_gamepad);
@@ -428,7 +426,7 @@ int main(void)
     struct game_input *new_input = &input[0];
     struct game_input *old_input = &input[1];
 
-    struct game_audio_buffer audio_buffer   = {0};
+    struct game_audio_buffer audio_buffer  = {0};
     struct macos_audio_output audio_output = {0};
     macos_audio_create(&audio_output);
 
@@ -443,7 +441,7 @@ int main(void)
 #endif
 
     struct macos_state macos_state = {0};
-    struct game_memory memory         = {0};
+    struct game_memory memory      = {0};
     memory.permanent_size          = MEGABYTES(64);
     memory.transient_size          = GIGABYTES(2);
     memory.permanent =
@@ -563,7 +561,7 @@ int main(void)
 
     while (RUNNING)
     {
-        time_t mtime = macos_get_last_file_write("libgame.dylib");
+        time_t mtime = macos_get_last_file_write("libhandmade.dylib");
         if (game.last_modification_time < mtime)
         {
             printf("loading updated game library\n");
@@ -597,61 +595,66 @@ int main(void)
 
             NSEventType type = event.type;
 #if HANDMADE_INTERNAL
-                if (type == NSEventTypeKeyDown) 
-                {
+            if (type == NSEventTypeKeyDown)
+            {
 #if 0
                     printf("key down hex %x\n", event.keyCode);
 #endif
-                    if (event.keyCode == kVK_Escape)
+                if (event.keyCode == kVK_Escape)
+                {
+                    RUNNING = false;
+                }
+                if (event.keyCode == kVK_ANSI_P)
+                {
+                    if (macos_state.is_playing_back)
                     {
-                        RUNNING = false;
+                        macos_end_input_playback(&macos_state);
+                        break;
                     }
-                    if (event.keyCode == kVK_ANSI_P)
-                    {
-                        if (macos_state.is_playing_back)
-                        {
-                            macos_end_input_playback(&macos_state);
-                            break;
-                        }
 
-                        if (macos_state.is_recording)
-                        {
-                            macos_end_recording_input(&macos_state);
-                            macos_begin_input_playback(&macos_state, 1);
-                            break;
-                        }
-                        else
-                        {
-                            macos_begin_recording_input(&macos_state, 1);
-                        }
+                    if (macos_state.is_recording)
+                    {
+                        macos_end_recording_input(&macos_state);
+                        macos_begin_input_playback(&macos_state, 1);
+                        break;
+                    }
+                    else
+                    {
+                        macos_begin_recording_input(&macos_state, 1);
                     }
                 }
+            }
 #endif
             if (type == NSEventTypeKeyDown || type == NSEventTypeKeyUp)
             {
                 int is_down = type == NSEventTypeKeyDown;
-                
-                if (event.ARepeat == 0) 
+
+                if (event.ARepeat == 0)
                 {
                     if (event.keyCode == kVK_ANSI_W)
                     {
-                        process_keyboard_key_input(&new_keyboard->move_up, is_down);
+                        process_keyboard_key_input(&new_keyboard->move_up,
+                                                   is_down);
                     }
                     else if (event.keyCode == kVK_ANSI_A)
                     {
-                        process_keyboard_key_input(&new_keyboard->move_left, is_down);
+                        process_keyboard_key_input(&new_keyboard->move_left,
+                                                   is_down);
                     }
                     else if (event.keyCode == kVK_ANSI_S)
                     {
-                        process_keyboard_key_input(&new_keyboard->move_down, is_down);
+                        process_keyboard_key_input(&new_keyboard->move_down,
+                                                   is_down);
                     }
                     else if (event.keyCode == kVK_ANSI_D)
                     {
-                        process_keyboard_key_input(&new_keyboard->move_right, is_down);
+                        process_keyboard_key_input(&new_keyboard->move_right,
+                                                   is_down);
                     }
                     if (event.keyCode == kVK_ANSI_K)
                     {
-                        process_keyboard_key_input(&new_keyboard->action_down, is_down);
+                        process_keyboard_key_input(&new_keyboard->action_down,
+                                                   is_down);
                     }
                 }
             }
@@ -663,79 +666,84 @@ int main(void)
 
         for (int i = 0; i < MAX_GAMEPADS; i++)
         {
-            if (!gamepad_handles[i]) continue;
-            if (!gamepad_handles[i]->is_connected) continue;
+            if (!gamepad_handles[i])
+                continue;
+            if (!gamepad_handles[i]->is_connected)
+                continue;
 
-            struct game_controller_input *old_controller = get_controller(old_input, i + 1);
-            struct game_controller_input *new_controller = get_controller(new_input, i + 1);
+            struct game_controller_input *old_controller =
+                get_controller(old_input, i + 1);
+            struct game_controller_input *new_controller =
+                get_controller(new_input, i + 1);
             new_controller->is_connected = gamepad_handles[i]->is_connected;
 
             process_gamepad_button_input(&old_controller->action_up,
-                                        &new_controller->action_up,
-                                        mac_gamepad.face_top.state == -1);
+                                         &new_controller->action_up,
+                                         mac_gamepad.face_top.state == -1);
             process_gamepad_button_input(&old_controller->action_down,
-                                        &new_controller->action_down,
-                                        mac_gamepad.face_bottom.state == 1);
+                                         &new_controller->action_down,
+                                         mac_gamepad.face_bottom.state == 1);
             process_gamepad_button_input(&old_controller->action_left,
-                                        &new_controller->action_left,
-                                        mac_gamepad.face_left.state == -1);
+                                         &new_controller->action_left,
+                                         mac_gamepad.face_left.state == -1);
             process_gamepad_button_input(&old_controller->action_right,
-                                        &new_controller->action_right,
-                                        mac_gamepad.face_right.state == 1);
+                                         &new_controller->action_right,
+                                         mac_gamepad.face_right.state == 1);
 
             // TODO: set should/back/start button usages
             process_gamepad_button_input(&old_controller->shoulder_left,
-                                        &new_controller->shoulder_left,
-                                        mac_gamepad.shoulder_left.state == -1);
+                                         &new_controller->shoulder_left,
+                                         mac_gamepad.shoulder_left.state == -1);
             process_gamepad_button_input(&old_controller->shoulder_right,
-                                        &new_controller->shoulder_right,
-                                        mac_gamepad.shoulder_right.state == 1);
+                                         &new_controller->shoulder_right,
+                                         mac_gamepad.shoulder_right.state == 1);
             process_gamepad_button_input(&old_controller->back,
-                                        &new_controller->back,
-                                        mac_gamepad.back.state == 1);
+                                         &new_controller->back,
+                                         mac_gamepad.back.state == 1);
             process_gamepad_button_input(&old_controller->start,
-                                        &new_controller->start,
-                                        mac_gamepad.start.state == 1); 
+                                         &new_controller->start,
+                                         mac_gamepad.start.state == 1);
 
             s32 axis_leftx = mac_gamepad.analog_stick_left_x.state;
             s32 axis_lefty = mac_gamepad.analog_stick_left_y.state;
- 
-            new_controller->axis_leftx_average = normalize_gamepad_axis_input(axis_leftx, 128, 128, 32);
-            new_controller->axis_lefty_average = normalize_gamepad_axis_input(axis_lefty, 128, 128, 32);
-  
-            new_controller->is_analog_movement =
-                    new_controller->axis_leftx_average != 0.0f ||
-                    new_controller->axis_lefty_average != 0.0f;
 
-             
+            new_controller->axis_leftx_average =
+                normalize_gamepad_axis_input(axis_leftx, 128, 128, 32);
+            new_controller->axis_lefty_average =
+                normalize_gamepad_axis_input(axis_lefty, 128, 128, 32);
+
+            new_controller->is_analog_movement =
+                new_controller->axis_leftx_average != 0.0f ||
+                new_controller->axis_lefty_average != 0.0f;
+
             if (!new_controller->is_analog_movement)
             {
                 new_controller->axis_leftx_average = mac_gamepad.dpad_x.state;
                 new_controller->axis_lefty_average = mac_gamepad.dpad_y.state;
             }
-            
+
             float axis_threshold = 0.5f;
-            process_gamepad_button_input(
-                &old_controller->move_down,
-                &new_controller->move_down,
-                new_controller->axis_lefty_average > axis_threshold);
-            process_gamepad_button_input(
-                &old_controller->move_right,
-                &new_controller->move_right,
-                new_controller->axis_leftx_average > axis_threshold);
-            process_gamepad_button_input(
-                &old_controller->move_up,
-                &new_controller->move_up,
-                new_controller->axis_lefty_average < -axis_threshold);
-            process_gamepad_button_input(
-                &old_controller->move_left,
-                &new_controller->move_left,
-                new_controller->axis_leftx_average < -axis_threshold);
+            process_gamepad_button_input(&old_controller->move_down,
+                                         &new_controller->move_down,
+                                         new_controller->axis_lefty_average >
+                                             axis_threshold);
+            process_gamepad_button_input(&old_controller->move_right,
+                                         &new_controller->move_right,
+                                         new_controller->axis_leftx_average >
+                                             axis_threshold);
+            process_gamepad_button_input(&old_controller->move_up,
+                                         &new_controller->move_up,
+                                         new_controller->axis_lefty_average <
+                                             -axis_threshold);
+            process_gamepad_button_input(&old_controller->move_left,
+                                         &new_controller->move_left,
+                                         new_controller->axis_leftx_average <
+                                             -axis_threshold);
         }
 
         struct game_input *tmp = new_input;
-        new_input               = old_input;
-        old_input               = tmp;
+        new_input              = old_input;
+        old_input              = tmp;
 
         // Audio
         // write to circular buffer
@@ -780,8 +788,7 @@ int main(void)
         }
 #endif
 
-        game.update_and_render(
-            &memory, &back_buffer, &audio_buffer, new_input);
+        game.update_and_render(&memory, &back_buffer, &audio_buffer, new_input);
 
         // call after game update
         macos_audio_fill_buffer(
@@ -1050,7 +1057,7 @@ internal void macos_device_callback(void *context,
     if (vendorID == 0x054C && productID == 0x09CC)
     {
         printf("Sony Dualshock 4 detected\n");
-        gamepad->is_connected = 1;
+        gamepad->is_connected         = 1;
         gamepad->face_left.usage_id   = 0x01;
         gamepad->face_bottom.usage_id = 0x02;
         gamepad->face_right.usage_id  = 0x03;
@@ -1062,7 +1069,7 @@ internal void macos_device_callback(void *context,
     {
         printf("Nintendo Joy-Con (%c) detected\n",
                productID == 0x2006 ? 'L' : 'R');
-        gamepad->is_connected = 1;
+        gamepad->is_connected         = 1;
         gamepad->face_bottom.usage_id = 0x01;
         gamepad->face_right.usage_id  = 0x02;
         gamepad->face_left.usage_id   = 0x03;
@@ -1210,7 +1217,7 @@ internal void macos_audio_create(struct macos_audio_output *audio_output)
     s32 status = AudioComponentInstanceNew(output, audio_output->audio_unit);
     assert(audio_output->audio_unit);
 
-    uint32_t inIOBufferFrameSize  = 900; // TODO: make dependent on frame rate
+    uint32_t inIOBufferFrameSize = 900; // TODO: make dependent on frame rate
 
     status = AudioUnitSetProperty(audio_unit,
                                   kAudioDevicePropertyBufferFrameSize,
@@ -1227,7 +1234,7 @@ internal void macos_audio_create(struct macos_audio_output *audio_output)
 #if HANDMADE_INTERNAL
     uint32_t theDataSize          = sizeof(uint32_t);
     uint32_t outIOBufferFrameSize = 0;
-    status = AudioUnitGetProperty(audio_unit,
+    status                        = AudioUnitGetProperty(audio_unit,
                                   kAudioDevicePropertyBufferFrameSize,
                                   kAudioUnitScope_Global,
                                   0,

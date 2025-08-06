@@ -45,13 +45,13 @@ mkdir -p ./build/bin/
 SRC_DIR="../../../src/"
 
 pushd ./build/bin/
-if ! $CC $CFLAGS $D_FLAGS -fPIC -shared -o libgame.dylib "../../src/game.c" ; then
+if ! $CC $CFLAGS $D_FLAGS -fPIC -shared -o libhandmade.dylib "../../src/handmade.c" ; then
     exit 1
 fi
 popd
 
 pushd ./build/bin/
-if ! $CC $CFLAGS $D_FLAGS -o "sdl_handmade" ./libgame.dylib "../../src/sdl.c" $(pkgconf --cflags --libs sdl3) ; then
+if ! $CC $CFLAGS $D_FLAGS -o "sdl_handmade" ./libhandmade.dylib "../../src/sdl.c" $(pkgconf --cflags --libs sdl3) ; then
     exit 1
 fi
 popd
