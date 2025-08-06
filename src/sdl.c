@@ -481,7 +481,7 @@ int main(void)
                 printf("gamepad axis motion: %d\n", event.gaxis.value);
 #endif
             }
-            else if (event.type == SDL_EVENT_KEY_DOWN ||
+            if (event.type == SDL_EVENT_KEY_DOWN ||
                      event.type == SDL_EVENT_KEY_UP)
             {
                 SDL_Keycode key = event.key.key;
@@ -508,7 +508,7 @@ int main(void)
                         process_keyboard_key_input(&new_keyboard->move_right,
                                                    is_down);
                     }
-                    else if (key == SDLK_I)
+                    if (key == SDLK_I)
                     {
                         process_keyboard_key_input(&new_keyboard->action_up,
                                                    is_down);
@@ -528,7 +528,7 @@ int main(void)
                         process_keyboard_key_input(&new_keyboard->action_right,
                                                    is_down);
                     }
-                    else if (key == SDLK_Q)
+                    if (key == SDLK_Q)
                     {
                         process_keyboard_key_input(&new_keyboard->shoulder_left,
                                                    is_down);
@@ -538,7 +538,7 @@ int main(void)
                         process_keyboard_key_input(
                             &new_keyboard->shoulder_right, is_down);
                     }
-                    else if (key == SDLK_BACKSPACE)
+                    if (key == SDLK_BACKSPACE)
                     {
                         process_keyboard_key_input(&new_keyboard->back,
                                                    is_down);
@@ -547,6 +547,10 @@ int main(void)
             }
         }
 
+        struct game_input *tmp_input = new_input;
+        new_input                    = old_input;
+        old_input                    = tmp_input;
+        
         for (int i = 0; i < MAX_GAMEPADS; i++)
         {
             if (gamepad_handles[i] == 0)
@@ -614,17 +618,17 @@ int main(void)
                 new_controller->axis_lefty_average = -1.0f;
                 new_controller->is_analog_movement = 0;
             }
-            if (SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_DOWN))
+            else if (SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_DOWN))
             {
                 new_controller->axis_lefty_average = 1.0f;
                 new_controller->is_analog_movement = 0;
             }
-            if (SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_LEFT))
+            else if (SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_LEFT))
             {
                 new_controller->axis_leftx_average = -1.0f;
                 new_controller->is_analog_movement = 0;
             }
-            if (SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_RIGHT))
+            else if (SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_RIGHT))
             {
                 new_controller->axis_leftx_average = 1.0f;
                 new_controller->is_analog_movement = 0;
@@ -668,10 +672,6 @@ int main(void)
         buffer.pitch                   = back_buffer.pitch;
         buffer.bytes_per_pixel         = 4;
         game.update_and_render(&game_memory, &buffer, NULL, new_input);
-
-        struct game_input *tmp_input = new_input;
-        new_input                    = old_input;
-        old_input                    = tmp_input;
 
         // enforce frame rate
         float seconds_elapsed =
