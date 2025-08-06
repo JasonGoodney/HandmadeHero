@@ -27,12 +27,6 @@ struct macos_audio_output
     AudioComponentInstance *audio_unit;
 };
 
-struct macos_recorded_input
-{
-    s32 input_count;
-    struct g_input *input_stream;
-};
-
 struct macos_state
 {
     uint64_t memory_block_size;
@@ -82,7 +76,6 @@ internal void macos_device_callback(void *context, IOReturn result,
                                     void *sender, IOHIDDeviceRef device);
 
 // Render
-internal CGRect macos_get_window_rect(const NSWindow *window);
 internal void macos_buffer_resize(struct game_back_buffer *buffer, int width,
                                   int height);
 internal void macos_window_display(struct game_back_buffer *buffer,

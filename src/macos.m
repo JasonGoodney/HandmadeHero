@@ -43,7 +43,7 @@ internal struct macos_gamepad *gamepad_handles[MAX_GAMEPADS];
 - (void)windowDidResize:(NSNotification *)notification
 {
     NSWindow *window = (NSWindow *)notification.object;
-    CGRect rect      = macos_get_window_rect(window);
+    CGRect rect      = window.contentView.bounds;
 
     NSString *title = [NSString stringWithFormat:@"Handmade Hero (%d x %d)",
                                                  (int)rect.size.width,
@@ -541,7 +541,7 @@ int main(void)
     windowDelegate.audio_buffer = &audio_buffer;
     windowDelegate.input        = new_input;
 
-    CGRect rect = macos_get_window_rect(window);
+    CGRect rect = window.contentView.bounds;
     macos_buffer_resize(&back_buffer, rect.size.width, rect.size.height);
     NSString *title = [NSString stringWithFormat:@"Handmade Hero (%d x %d)",
                                                  back_buffer.width,
@@ -550,9 +550,11 @@ int main(void)
     // end platform
 
     // run loop
+#if HANDMADE_INTERNAL
     size_t debug_time_marker_index = 0;
     struct macos_debug_time_marker
         debug_time_markers[game_refresh_rate_hz / 2] = {0};
+#endif
 
     RUNNING = true;
     mach_timebase_info_data_t timebase;
@@ -594,40 +596,41 @@ int main(void)
                                        dequeue:YES];
 
             NSEventType type = event.type;
+#if HANDMADE_INTERNAL
+                if (type == NSEventTypeKeyDown) 
+                {
+#if 0
+                    printf("key down hex %x\n", event.keyCode);
+#endif
+                    if (event.keyCode == kVK_Escape)
+                    {
+                        RUNNING = false;
+                    }
+                    if (event.keyCode == kVK_ANSI_P)
+                    {
+                        if (macos_state.is_playing_back)
+                        {
+                            macos_end_input_playback(&macos_state);
+                            break;
+                        }
+
+                        if (macos_state.is_recording)
+                        {
+                            macos_end_recording_input(&macos_state);
+                            macos_begin_input_playback(&macos_state, 1);
+                            break;
+                        }
+                        else
+                        {
+                            macos_begin_recording_input(&macos_state, 1);
+                        }
+                    }
+                }
+#endif
             if (type == NSEventTypeKeyDown || type == NSEventTypeKeyUp)
             {
-#if 0
-                if ([event type] == NSEventTypeKeyDown) 
-                {
-                    printf("key down hex %x\n", event.keyCode);
-                }
-#endif
                 int is_down = type == NSEventTypeKeyDown;
-                if (event.keyCode == kVK_Escape)
-                {
-                    RUNNING = false;
-                }
-#if HANDMADE_INTERNAL
-                else if (event.keyCode == kVK_ANSI_L)
-                {
-                    if (macos_state.is_playing_back)
-                    {
-                        macos_end_input_playback(&macos_state);
-                        break;
-                    }
-
-                    if (macos_state.is_recording)
-                    {
-                        macos_end_recording_input(&macos_state);
-                        macos_begin_input_playback(&macos_state, 1);
-                        break;
-                    }
-                    else
-                    {
-                        macos_begin_recording_input(&macos_state, 1);
-                    }
-                }
-#endif
+                
                 if (event.ARepeat == 0) 
                 {
                     if (event.keyCode == kVK_ANSI_W)
@@ -849,15 +852,9 @@ int main(void)
     return 0;
 }
 
-internal CGRect macos_get_window_rect(const NSWindow *window)
-{
-    return window.contentView.bounds;
-}
-
 internal void macos_window_display(struct game_back_buffer *buffer,
                                    const NSWindow *window)
 {
-
     @autoreleasepool
     {
         NSBitmapImageRep *imageRep = [[[NSBitmapImageRep alloc]
@@ -1213,8 +1210,6 @@ internal void macos_audio_create(struct macos_audio_output *audio_output)
     s32 status = AudioComponentInstanceNew(output, audio_output->audio_unit);
     assert(audio_output->audio_unit);
 
-    uint32_t theDataSize          = sizeof(uint32_t);
-    uint32_t outIOBufferFrameSize = 0;
     uint32_t inIOBufferFrameSize  = 900; // TODO: make dependent on frame rate
 
     status = AudioUnitSetProperty(audio_unit,
@@ -1230,6 +1225,8 @@ internal void macos_audio_create(struct macos_audio_output *audio_output)
     }
 
 #if HANDMADE_INTERNAL
+    uint32_t theDataSize          = sizeof(uint32_t);
+    uint32_t outIOBufferFrameSize = 0;
     status = AudioUnitGetProperty(audio_unit,
                                   kAudioDevicePropertyBufferFrameSize,
                                   kAudioUnitScope_Global,

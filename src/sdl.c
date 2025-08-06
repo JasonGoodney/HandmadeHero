@@ -30,7 +30,7 @@ struct sdl_sound_output
     uint32_t running_sample_index;
 };
 
-struct platform_state
+struct sdl_state
 {
     uint64_t memory_block_size;
     void *memory_block;
@@ -219,12 +219,73 @@ internal void sdl_unload_game_code(struct lib_game *game)
     game->update_and_render = stub_game_update_and_render;
 }
 
+#if HANDMADE_INTERNAL
+internal void sdl_record_input(struct sdl_state *state,
+                                 struct game_input *input)
+{
+    size_t bytes_written =
+        fwrite(input, sizeof(char), sizeof(*input), state->recording_handle);
+    if (bytes_written <= 0)
+    {
+        // Log record input failure
+    }
+}
+
+internal void sdl_begin_recording_input(struct sdl_state *state, s32 index)
+{
+    if (state->replay_memory_block)
+    {
+        state->recording_handle = state->replay_file_handle;
+        fseek(state->recording_handle, (s64)state->memory_block_size, SEEK_SET);
+        memcpy(state->replay_memory_block,
+               state->memory_block,
+               state->memory_block_size);
+        state->is_recording = 1;
+    }
+}
+
+internal void sdl_end_recording_input(struct sdl_state *state)
+{
+    state->is_recording = 0;
+}
+
+internal void sdl_begin_input_playback(struct sdl_state *state, s32 index)
+{                            
+    if (state->replay_memory_block)
+    {
+        state->playback_handle = state->replay_file_handle;
+        fseek(state->playback_handle, (s64)state->memory_block_size, SEEK_SET);
+        memcpy(state->memory_block,
+               state->replay_memory_block,
+               state->memory_block_size);
+        state->is_playing_back = 1;
+    }
+}
+
+internal void sdl_end_input_playback(struct sdl_state *state)
+{
+    state->is_playing_back = 0;
+}
+
+internal void sdl_playback_input(struct sdl_state *state,
+                                   struct game_input *input)
+{
+    size_t bytes_read =
+        fread(input, sizeof(char), sizeof(*input), state->playback_handle);
+    if (bytes_read <= 0)
+    {
+        sdl_end_input_playback(state);
+        sdl_begin_input_playback(state, 1); // loop playback
+    }
+}
+#endif
+
 int main(void)
 {
     int game_update_hz             = 30;
     float target_seconds_per_frame = 1.0f / (float)game_update_hz;
 
-    struct platform_state platform_state = {0};
+    struct sdl_state platform_state = {0};
     struct sdl_offscreen_buffer back_buffer = {0};
     
 #if HANDMADE_INTERNAL
@@ -364,6 +425,34 @@ int main(void)
         SDL_Event event;
         while (SDL_PollEvent(&event))
         {
+            #if HANDMADE_INTERNAL
+                if (event.type == SDL_EVENT_KEY_DOWN)
+                {
+                    if (event.key.key == SDLK_P)
+                    {
+                        if (platform_state.is_playing_back)
+                        {
+                            sdl_end_input_playback(&platform_state);
+                            break;
+                        }
+
+                        if (platform_state.is_recording)
+                        {
+                            sdl_end_recording_input(&platform_state);
+                            sdl_begin_input_playback(&platform_state, 1);
+                            break;
+                        }
+                        else
+                        {
+                            sdl_begin_recording_input(&platform_state, 1);
+                        }
+                    }
+                    if (event.key.key == SDLK_ESCAPE)
+                    {
+                        running = 0;
+                    }
+                }
+#endif
             if (event.type == SDL_EVENT_QUIT)
             {
                 running = 0;
@@ -396,7 +485,6 @@ int main(void)
             {
                 SDL_Keycode key = event.key.key;
                 int is_down     = event.key.down;
-
                 if (event.key.repeat == 0)
                 {
                     if (key == SDLK_W)
@@ -557,6 +645,17 @@ int main(void)
                 new_controller->axis_leftx_average < -axis_threshold);
         }
 
+#if HANDMADE_INTERNAL
+        if (platform_state.is_recording)
+        {
+            sdl_record_input(&platform_state, new_input);
+        }
+        else if (platform_state.is_playing_back)
+        {
+            sdl_playback_input(&platform_state, new_input);
+        }
+#endif
+
         struct game_back_buffer buffer = {0};
         buffer.data = back_buffer.memory;
         buffer.width = back_buffer.width;
@@ -590,13 +689,20 @@ int main(void)
                 // wait...
             }
         }
+        else
+        {
+            // TODO: handle missing frame rate
+            // TODO: Logging
+        }
 
         uint64_t end_counter = SDL_GetPerformanceCounter();
+
         SDL_UpdateTexture(
             back_buffer.texture, 0, back_buffer.memory, back_buffer.pitch);
         SDL_RenderTexture(renderer, back_buffer.texture, 0, 0);
         SDL_RenderPresent(renderer);
-#if 1
+
+#if 0
         uint64_t counter_elapsed = end_counter - last_counter;
         double ms_per_frame =
             (1000.0f * (double)counter_elapsed) / (double)perf_count_freq;
