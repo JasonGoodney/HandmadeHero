@@ -5,12 +5,15 @@
 GAME_UPDATE_AND_RENDER(game_update_and_render)
 {
     ASSERT(sizeof(struct game_state) <= memory->permanent_size);
+    ASSERT((&input->controllers[0].terminator -
+            &input->controllers[0].buttons[0]) ==
+           (ARRAY_SIZE(input->controllers[0].buttons)));
 
     struct game_state *game_state = (struct game_state *)memory->permanent;
 
     if (!memory->is_initialized)
     {
-#if HANDMADE_INTERNAL
+#if HANDMADE_MAC && HANDMADE_INTERNAL
         struct debug_read_file_result result =
             memory->debug_platform_read_file(__FILE__);
         if (result.data)
@@ -88,8 +91,6 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
     }
 
     // Pixels
-    int size = game_state->box.width;
-
     u8 *row = buffer->data;
     for (int y = 0; y < buffer->height; y += 1)
     {
@@ -100,7 +101,7 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
             u8 g   = 0;
             u8 b   = 0;
             u8 a   = 255;
-            *pixel = (r | g << 8 | b << 16 | a << 24);
+            *pixel = (a << 24 | b << 16 | g << 8 | r);
             pixel += 1;
         }
         row += buffer->pitch;

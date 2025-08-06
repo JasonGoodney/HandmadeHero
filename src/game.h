@@ -174,10 +174,10 @@ struct game_state
 };
 
 // Service that the game provides to the platform layer
-#define GAME_UPDATE_AND_RENDER(func_name)                                      \
-    void func_name(struct game_memory *memory,                                    \
-                   struct game_back_buffer *buffer,                                \
-                   struct game_audio_buffer *audio_buffer,                         \
+#define GAME_UPDATE_AND_RENDER(func_name)                                 \
+    void func_name(struct game_memory *memory,                            \
+                   struct game_back_buffer *buffer,                       \
+                   struct game_audio_buffer *audio_buffer,                \
                    struct game_input *input)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render_f);
 GAME_UPDATE_AND_RENDER(stub_game_update_and_render) {}

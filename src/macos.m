@@ -7,9 +7,6 @@
 #include <mach/mach.h>
 #include <mach/mach_time.h>
 
-#include "game.h"
-#include "macos.h"
-
 #include <dlfcn.h>
 #include <math.h>
 #include <stdio.h>
@@ -19,6 +16,9 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <time.h>
+
+#include "game.h"
+#include "macos.h"
 
 global BOOL RUNNING;
 

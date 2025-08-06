@@ -40,8 +40,6 @@ D_FLAGS="-DHANDMADE_SDL=1
          -DHANDMADE_SLOW=1
          -DHANDMADE_INTERNAL=1"
 
-PLATFORM="sdl"
-
 echo "Building Handmade Hero"
 mkdir -p ./build/bin/
 SRC_DIR="../../../src/"
@@ -53,7 +51,7 @@ fi
 popd
 
 pushd ./build/bin/
-if ! $CC $CFLAGS $D_FLAGS -o "${PLATFORM}_handmade" ./libgame.dylib "../../src/$PLATFORM.c" $(pkgconf --cflags --libs sdl3) ; then
+if ! $CC $CFLAGS $D_FLAGS -o "sdl_handmade" ./libgame.dylib "../../src/sdl.c" $(pkgconf --cflags --libs sdl3) ; then
     exit 1
 fi
 popd
@@ -62,7 +60,7 @@ popd
 if [ "${DEBUG}" ]; then
     if [ "${CC}" == "clang" ]; then
         pushd ./build/bin/
-        lldb ./$PLATFORM/handmade
+        lldb ./sdl/handmade
         popd
         exit 1
     elif [ "${CC}" == "gcc" ]; then
@@ -71,7 +69,7 @@ if [ "${DEBUG}" ]; then
             exit 1
         fi
         pushd ./build/bin/
-        gdb ./$PLATFORM/handmade
+        gdb ./sdl/handmade
         popd
         exit 1
     fi
@@ -85,6 +83,6 @@ fi
 if [ "${RUN}" ]; then
     echo "Running Handmade Hero"
     pushd ./build/bin/
-    "./${PLATFORM}_handmade"
+    ./sdl_handmade
     popd
 fi

@@ -1,9 +1,14 @@
 #include <SDL3/SDL.h>
 #include <math.h>
 #include <sys/mman.h>
+#include <dlfcn.h>
+#include <sys/_types/_ssize_t.h>
+#include <sys/stat.h>
+#include <sys/fcntl.h>
+#include <unistd.h>
+#include <stdlib.h>
 
 #include "game.h"
-#include "handmade.c"
 
 SDL_Gamepad *gamepad_handles[MAX_GAMEPADS];
 
@@ -25,6 +30,23 @@ struct sdl_sound_output
     uint32_t running_sample_index;
 };
 
+struct platform_state
+{
+    uint64_t memory_block_size;
+    void *memory_block;
+
+    void *replay_memory_block;
+    FILE *replay_file_handle;
+
+    s32 input_recording_index;
+    FILE *recording_handle;
+    b32 is_recording;
+
+    s32 input_playing_index;
+    FILE *playback_handle;
+    b32 is_playing_back;
+};
+
 static void sdl_resize_window(SDL_Renderer *renderer,
                               struct sdl_offscreen_buffer *buffer,
                               int width,
@@ -42,7 +64,7 @@ static void sdl_resize_window(SDL_Renderer *renderer,
     }
 
     buffer->texture = SDL_CreateTexture(renderer,
-                                        SDL_PIXELFORMAT_ARGB8888,
+                                        SDL_PIXELFORMAT_ABGR8888, // macos format
                                         SDL_TEXTUREACCESS_STREAMING,
                                         width,
                                         height);
@@ -106,8 +128,105 @@ static float sdl_get_seconds_elapsed(uint64_t old_counter,
            (float)SDL_GetPerformanceFrequency();
 }
 
+void copy(char *src, char *dst)
+{
+    u8 buffer[512];
+
+    FILE *fsrc = fopen(src, "rb");
+    if (!fsrc)
+    {
+        printf("fopen src error: %s\n", src);
+        exit(EXIT_FAILURE);
+    }
+
+    FILE *fdst = fopen(dst, "wb");
+    if (!fdst)
+    {
+        printf("fopen dst error: %s", dst);
+        exit(EXIT_FAILURE);
+    }
+
+    size_t bytes;
+    while ((bytes = fread(buffer, 1, sizeof(buffer), fsrc)) > 0)
+    {
+        fwrite(buffer, 1, bytes, fdst);
+    }
+
+    fclose(fsrc);
+    fclose(fdst);
+
+    printf("finished copy from %s to %s\n", src, dst);
+}
+
+internal time_t sdl_get_last_file_write(char *path)
+{
+    time_t result           = 0;
+    struct stat file_status = {0};
+    if (stat(path, &file_status) == 0)
+    {
+        result = file_status.st_mtime;
+    }
+
+    return result;
+}
+
+internal struct lib_game sdl_load_game_code()
+{
+    char *lib_path = "libgame.dylib";
+    char *tmp_path = "tmp_libgame.dylib";
+
+    struct lib_game game = {0};
+
+    game.last_modification_time = sdl_get_last_file_write(lib_path);
+    copy(lib_path, tmp_path);
+    game.lib_handle = dlopen(tmp_path, RTLD_NOW);
+
+    if (game.lib_handle)
+    {
+        game.update_and_render = (game_update_and_render_f *)dlsym(
+            game.lib_handle, "game_update_and_render");
+
+        if (!game.update_and_render)
+        {
+            printf("failed to locate symbol %s\n", "game_update_and_render");
+            exit(EXIT_FAILURE);
+        }
+        game.is_valid = game.update_and_render != NULL;
+    }
+    else
+    {
+        printf("failed to open dylib at %s\n", tmp_path);
+        exit(EXIT_FAILURE);
+    }
+
+    if (!game.is_valid)
+    {
+        game.update_and_render = stub_game_update_and_render;
+    }
+    printf("finished loading libgame.dylib\n");
+    return game;
+}
+
+internal void sdl_unload_game_code(struct lib_game *game)
+{
+    if (game->lib_handle)
+    {
+        dlclose(game->lib_handle);
+        game->lib_handle = 0;
+    }
+
+    game->is_valid          = 0;
+    game->update_and_render = stub_game_update_and_render;
+}
+
 int main(void)
 {
+    int game_update_hz             = 30;
+    float target_seconds_per_frame = 1.0f / (float)game_update_hz;
+
+    struct platform_state platform_state = {0};
+    struct sdl_offscreen_buffer back_buffer = {0};
+    
 #if HANDMADE_INTERNAL
     void *base_address = (void *)TERABYTES(2);
 #else
@@ -132,6 +251,55 @@ int main(void)
     struct game_input *new_input = &input[0];
     struct game_input *old_input = &input[1];
 
+    ASSERT(game_memory.permanent && game_memory.transient);
+    if (!game_memory.permanent && !game_memory.transient)
+    {
+        printf("Error setting up game memory\n");
+        exit(1);
+    }
+
+    platform_state.memory_block      = game_memory.permanent;
+    platform_state.memory_block_size = game_memory.permanent_size;
+
+    int file_descriptor;
+    mode_t mode = S_IRUSR | S_IWUSR;
+    char filename[256];
+    sprintf(filename, "replay_buffer.hmi");
+    file_descriptor = open(filename, O_CREAT | O_RDWR, mode);
+    int result      = truncate(filename, (s64)game_memory.permanent_size);
+
+    if (result < 0)
+    {
+        printf("Failed to open replay_buffer.hmi\n");
+        exit(1);
+    }
+
+    platform_state.replay_memory_block = mmap(0,
+                                           game_memory.permanent_size,
+                                           PROT_READ | PROT_WRITE,
+                                           MAP_PRIVATE,
+                                           file_descriptor,
+                                           0);
+    platform_state.replay_file_handle  = fopen(filename, "r+");
+    fseek(platform_state.replay_file_handle,
+          (int)platform_state.memory_block_size,
+          SEEK_SET);
+    if (!platform_state.replay_memory_block)
+    {
+        printf("Failed to allocate replay_memory_block\n");
+        exit(1);
+    }
+
+// #if HANDMADE_INTERNAL
+//     memory.debug_platform_free_file  = debug_platform_free_file;
+//     memory.debug_platform_read_file  = debug_platform_read_file;
+//     memory.debug_platform_write_file = debug_platform_write_file;
+// #endif
+
+    struct lib_game game = sdl_load_game_code();
+    // end game setup
+
+    // begin platform setup
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK |
              SDL_INIT_GAMEPAD);
 
@@ -139,7 +307,6 @@ int main(void)
         "Handmade Hero", RENDER_WIDTH, RENDER_HEIGHT, SDL_WINDOW_RESIZABLE);
     SDL_Renderer *renderer = SDL_CreateRenderer(window, 0);
 
-    struct sdl_offscreen_buffer back_buffer = {0};
     sdl_resize_window(renderer, &back_buffer, RENDER_WIDTH, RENDER_HEIGHT);
 
     struct sdl_sound_output sound_output = {0};
@@ -163,15 +330,23 @@ int main(void)
 #if 0
     SDL_ResumeAudioStreamDevice(audio_stream);
 #endif
+    // end platform
 
-    int game_update_hz             = 30;
-    float target_seconds_per_frame = 1.0f / (float)game_update_hz;
-
+    // run loop
     int running              = 1;
     uint64_t perf_count_freq = SDL_GetPerformanceFrequency();
     uint64_t last_counter    = SDL_GetPerformanceCounter();
     while (running)
     {
+        time_t mtime = sdl_get_last_file_write("libgame.dylib");
+        if (game.last_modification_time < mtime)
+        {
+            printf("loading updated game library\n");
+            sdl_unload_game_code(&game);
+            game                        = sdl_load_game_code();
+            game.last_modification_time = mtime;
+        }
+
         struct game_controller_input *old_keyboard =
             get_controller(old_input, 0);
         struct game_controller_input *new_keyboard =
@@ -383,11 +558,12 @@ int main(void)
         }
 
         struct game_back_buffer buffer = {0};
-        buffer.data                       = back_buffer.memory;
-        buffer.width                        = back_buffer.width;
-        buffer.height                       = back_buffer.height;
-        buffer.pitch                        = back_buffer.pitch;
-        game_update_and_render(&game_memory, &buffer, new_input);
+        buffer.data = back_buffer.memory;
+        buffer.width = back_buffer.width;
+        buffer.height = back_buffer.height;
+        buffer.pitch = back_buffer.pitch;
+        buffer.bytes_per_pixel = 4;
+        game.update_and_render(&game_memory, &buffer, NULL, new_input);
 
         struct game_input *tmp_input = new_input;
         new_input                    = old_input;
@@ -429,8 +605,10 @@ int main(void)
 #endif
 
         last_counter = end_counter;
-    } // end run loop
+    } 
+    // end run loop
 
+    // exit cleanup
     for (int i = 0; i < MAX_GAMEPADS; i++)
     {
         if (gamepad_handles[i])
