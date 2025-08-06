@@ -36,26 +36,22 @@ CFLAGS="-g
         -Wno-unused-parameter
         -Wno-null-dereference"
 
-OSX_LD_FLAGS="-framework AppKit
-              -framework IOKit
-              -framework AudioToolbox"
-
-D_FLAGS="-DHANDMADE_MAC=1
+D_FLAGS="-DHANDMADE_SDL=1
          -DHANDMADE_SLOW=1
          -DHANDMADE_INTERNAL=1"
 
 echo "Building Handmade Hero"
-mkdir -p ./build/bin/macos
+mkdir -p ./build/bin/
 SRC_DIR="../../../src/"
 
 pushd ./build/bin/
-if ! $CC $CFLAGS $D_FLAGS $OSX_LD_FLAGS -fPIC -shared -o libgame.dylib "../../src/game.c" ; then
+if ! $CC $CFLAGS $D_FLAGS -fPIC -shared -o libhandmade.dylib "../../src/handmade.c" ; then
     exit 1
 fi
 popd
 
-pushd ./build/bin/macos
-if ! $CC $CFLAGS $D_FLAGS $OSX_LD_FLAGS -o handmade ../libgame.dylib "../../../src/macos/macos_main.m" ; then
+pushd ./build/bin/
+if ! $CC $CFLAGS $D_FLAGS -o "sdl_handmade" ./libhandmade.dylib "../../src/sdl.c" $(pkgconf --cflags --libs sdl3) ; then
     exit 1
 fi
 popd
@@ -64,7 +60,7 @@ popd
 if [ "${DEBUG}" ]; then
     if [ "${CC}" == "clang" ]; then
         pushd ./build/bin/
-        lldb ./macos/handmade
+        lldb ./sdl/handmade
         popd
         exit 1
     elif [ "${CC}" == "gcc" ]; then
@@ -73,7 +69,7 @@ if [ "${DEBUG}" ]; then
             exit 1
         fi
         pushd ./build/bin/
-        gdb ./macos/handmade
+        gdb ./sdl/handmade
         popd
         exit 1
     fi
@@ -87,6 +83,6 @@ fi
 if [ "${RUN}" ]; then
     echo "Running Handmade Hero"
     pushd ./build/bin/
-    ./macos/handmade
+    ./sdl_handmade
     popd
 fi

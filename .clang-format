@@ -1,3 +1,5 @@
 BreakBeforeBraces: Allman
 IndentWidth: 4
 AlignConsecutiveAssignments: Consecutive
+BinPackArguments: false
+BinPackParameters: false
