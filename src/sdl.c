@@ -283,7 +283,8 @@ internal void sdl_playback_input(struct sdl_state *state,
 
 int main(void)
 {
-    int game_update_hz             = 30;
+    int monitor_update_hz          = 60;
+    int game_update_hz             = monitor_update_hz / 2;
     float target_seconds_per_frame = 1.0f / (float)game_update_hz;
 
     struct sdl_state platform_state         = {0};
@@ -400,6 +401,8 @@ int main(void)
     uint64_t last_counter    = SDL_GetPerformanceCounter();
     while (running)
     {
+        new_input->seconds_to_advance_over_update = target_seconds_per_frame;
+
         time_t mtime = sdl_get_last_file_write("libhandmade.dylib");
         if (game.last_modification_time < mtime)
         {
@@ -482,7 +485,7 @@ int main(void)
 #endif
             }
             if (event.type == SDL_EVENT_KEY_DOWN ||
-                     event.type == SDL_EVENT_KEY_UP)
+                event.type == SDL_EVENT_KEY_UP)
             {
                 SDL_Keycode key = event.key.key;
                 int is_down     = event.key.down;
@@ -550,7 +553,7 @@ int main(void)
         struct game_input *tmp_input = new_input;
         new_input                    = old_input;
         old_input                    = tmp_input;
-        
+
         for (int i = 0; i < MAX_GAMEPADS; i++)
         {
             if (gamepad_handles[i] == 0)
@@ -618,17 +621,20 @@ int main(void)
                 new_controller->axis_lefty_average = -1.0f;
                 new_controller->is_analog_movement = 0;
             }
-            else if (SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_DOWN))
+            else if (SDL_GetGamepadButton(gamepad,
+                                          SDL_GAMEPAD_BUTTON_DPAD_DOWN))
             {
                 new_controller->axis_lefty_average = 1.0f;
                 new_controller->is_analog_movement = 0;
             }
-            else if (SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_LEFT))
+            else if (SDL_GetGamepadButton(gamepad,
+                                          SDL_GAMEPAD_BUTTON_DPAD_LEFT))
             {
                 new_controller->axis_leftx_average = -1.0f;
                 new_controller->is_analog_movement = 0;
             }
-            else if (SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_RIGHT))
+            else if (SDL_GetGamepadButton(gamepad,
+                                          SDL_GAMEPAD_BUTTON_DPAD_RIGHT))
             {
                 new_controller->axis_leftx_average = 1.0f;
                 new_controller->is_analog_movement = 0;

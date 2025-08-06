@@ -40,8 +40,8 @@ typedef double f64;
 #define MEGABYTES(value) (KILOBYTES(value) * 1024LL)
 #define GIGABYTES(value) (MEGABYTES(value) * 1024LL)
 #define TERABYTES(value) (GIGABYTES(value) * 1024LL)
-global const u32 RENDER_WIDTH  = 64 * 12;
-global const u32 RENDER_HEIGHT = 64 * 8;
+global const u32 RENDER_WIDTH  = 960;
+global const u32 RENDER_HEIGHT = 540;
 
 #if HANDMADE_SLOW
 #define ASSERT(Expression)                                                     \
@@ -52,14 +52,6 @@ global const u32 RENDER_HEIGHT = 64 * 8;
 #else
 #define ASSERT(Expression)
 #endif
-
-struct Rectangle
-{
-    int x;
-    int y;
-    int width;
-    int height;
-};
 
 // TODO: Services that the platform layer provides to the game
 #if HANDMADE_INTERNAL
@@ -137,6 +129,7 @@ struct game_controller_input
 struct game_input
 {
     struct game_controller_input controllers[5];
+    float seconds_to_advance_over_update;
 };
 
 struct game_memory
@@ -158,22 +151,13 @@ struct game_memory
 
 struct game_state
 {
-    int x_offset;
-    int y_offset;
-    s16 tone_hz;
-    f32 t_sine;
-
-    struct Rectangle box;
-    s32 player_x;
-    s32 player_y;
-    f32 t_jump;
 };
 
 // Service that the game provides to the platform layer
-#define GAME_UPDATE_AND_RENDER(func_name)                                 \
-    void func_name(struct game_memory *memory,                            \
-                   struct game_back_buffer *buffer,                       \
-                   struct game_audio_buffer *audio_buffer,                \
+#define GAME_UPDATE_AND_RENDER(func_name)                                      \
+    void func_name(struct game_memory *memory,                                 \
+                   struct game_back_buffer *buffer,                            \
+                   struct game_audio_buffer *audio_buffer,                     \
                    struct game_input *input)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render_f);
 GAME_UPDATE_AND_RENDER(stub_game_update_and_render) {}
@@ -193,39 +177,44 @@ internal inline u32 safe_truncate_uint64(u64 value)
     return (result);
 }
 
-internal inline struct game_controller_input *get_controller(struct game_input *input,
-                                                    uint8_t index)
+internal inline struct game_controller_input *
+get_controller(struct game_input *input, uint8_t index)
 {
     ASSERT(index < ARRAY_SIZE(input->controllers));
     struct game_controller_input *controller = &input->controllers[index];
     return controller;
 }
 
-internal inline f32 normalize_gamepad_axis_input(s16 value, s32 range, s32 mid, s16 dead_zone) {
+internal inline f32
+normalize_gamepad_axis_input(s16 value, s32 range, s32 mid, s16 dead_zone)
+{
     float result = 0;
     if (value < mid - dead_zone)
     {
-        result = (float)((value + dead_zone - mid) / (float)(range - dead_zone));
+        result =
+            (float)((value + dead_zone - mid) / (float)(range - dead_zone));
     }
     else if (value > mid + dead_zone)
     {
 
-        result = (float)((value - dead_zone - mid) / (float)((range-1) - dead_zone));
+        result = (float)((value - dead_zone - mid) /
+                         (float)((range - 1) - dead_zone));
     }
     return result;
 }
 
-internal inline void process_keyboard_key_input(struct game_button_state *new_state,
-                                        int is_pressed)
+internal inline void
+process_keyboard_key_input(struct game_button_state *new_state, int is_pressed)
 {
     ASSERT(new_state->ended_pressed != is_pressed);
     new_state->ended_pressed = is_pressed;
     new_state->half_transition_count++;
 }
 
-internal inline void process_gamepad_button_input(struct game_button_state *old_state,
-                                           struct game_button_state *new_state,
-                                           b32 is_pressed)
+internal inline void
+process_gamepad_button_input(struct game_button_state *old_state,
+                             struct game_button_state *new_state,
+                             b32 is_pressed)
 {
     new_state->ended_pressed = is_pressed;
     new_state->half_transition_count +=
