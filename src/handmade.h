@@ -129,7 +129,7 @@ struct game_controller_input
 struct game_input
 {
     struct game_controller_input controllers[5];
-    float seconds_to_advance_over_update;
+    float delta_time_for_frame;
 };
 
 struct game_memory
@@ -151,6 +151,8 @@ struct game_memory
 
 struct game_state
 {
+    f32 player_x;
+    f32 player_y;
 };
 
 // Service that the game provides to the platform layer

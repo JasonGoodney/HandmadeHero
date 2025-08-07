@@ -401,7 +401,7 @@ int main(void)
     uint64_t last_counter    = SDL_GetPerformanceCounter();
     while (running)
     {
-        new_input->seconds_to_advance_over_update = target_seconds_per_frame;
+        new_input->delta_time_for_frame = target_seconds_per_frame;
 
         time_t mtime = sdl_get_last_file_write("libhandmade.dylib");
         if (game.last_modification_time < mtime)
@@ -713,7 +713,7 @@ int main(void)
         SDL_RenderTexture(renderer, back_buffer.texture, 0, 0);
         SDL_RenderPresent(renderer);
 
-#if 0
+#if 0 // log fps
         uint64_t counter_elapsed = end_counter - last_counter;
         double ms_per_frame =
             (1000.0f * (double)counter_elapsed) / (double)perf_count_freq;
