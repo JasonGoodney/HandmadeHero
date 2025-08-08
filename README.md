@@ -15,6 +15,7 @@ From the series spawned the recent Handmade movement we us developers favor rein
 - Unofficial Mac Platform Layer: https://www.youtube.com/playlist?list=PLQOu9z2IsoWnvByDqg_CmihZogT5sI3uM
 - Unofficial Linux Platform Layer: https://davidgow.net/handmadepenguin/default.html
 
+### Day 030 - Moving Between Tile Maps
 ### Day 029 - Basic Tile Map Collision
 ### Day 028 - Drawing a Tile Map
 ### Day 027 - Exploration-based Architecture
