@@ -161,7 +161,7 @@ internal void macos_record_input(struct macos_state *state,
     }
 }
 
-internal void macos_begin_recording_input(struct macos_state *state, s32 index)
+internal void macos_begin_recording_input(struct macos_state *state, i32 index)
 {
     // state->input_recording_index = index;
     // char *filename               = "foo.hmi";
@@ -172,7 +172,7 @@ internal void macos_begin_recording_input(struct macos_state *state, s32 index)
     if (state->replay_memory_block)
     {
         state->recording_handle = state->replay_file_handle;
-        fseek(state->recording_handle, (s64)state->memory_block_size, SEEK_SET);
+        fseek(state->recording_handle, (i64)state->memory_block_size, SEEK_SET);
         memcpy(state->replay_memory_block,
                state->memory_block,
                state->memory_block_size);
@@ -187,7 +187,7 @@ internal void macos_end_recording_input(struct macos_state *state)
     state->is_recording = 0;
 }
 
-internal void macos_begin_input_playback(struct macos_state *state, s32 index)
+internal void macos_begin_input_playback(struct macos_state *state, i32 index)
 {
     // state->input_playing_index = index;
     // char *filename             = "foo.hmi";
@@ -196,7 +196,7 @@ internal void macos_begin_input_playback(struct macos_state *state, s32 index)
     if (state->replay_memory_block)
     {
         state->playback_handle = state->replay_file_handle;
-        fseek(state->playback_handle, (s64)state->memory_block_size, SEEK_SET);
+        fseek(state->playback_handle, (i64)state->memory_block_size, SEEK_SET);
         memcpy(state->memory_block,
                state->replay_memory_block,
                state->memory_block_size);
@@ -218,7 +218,7 @@ internal void macos_playback_input(struct macos_state *state,
     //     read(state->playback_handle, (uint8_t *)input, sizeof(*input));
     // if (bytes_read == 0) {
     //     // reached the end of the stream
-    //     s32 index = state->input_playing_index;
+    //     i32 index = state->input_playing_index;
     //     macos_end_input_playback(state);
     //     macos_begin_input_playback(state, index);
     //     bytes_read =
@@ -430,7 +430,7 @@ int main(void)
     struct macos_audio_output audio_output = {0};
     macos_audio_create(&audio_output);
 
-    s16 *samples =
+    i16 *samples =
         calloc(audio_output.sample_rate_khz, audio_output.bytes_per_sample);
     audio_buffer.sample_rate_khz = audio_output.sample_rate_khz;
 
@@ -467,7 +467,7 @@ int main(void)
     char filename[256];
     sprintf(filename, "replay_buffer.hmi");
     file_descriptor = open(filename, O_CREAT | O_RDWR, mode);
-    int result      = truncate(filename, (s64)memory.permanent_size);
+    int result      = truncate(filename, (i64)memory.permanent_size);
 
     if (result < 0)
     {
@@ -704,8 +704,8 @@ int main(void)
                                          &new_controller->start,
                                          mac_gamepad.start.state == 1);
 
-            s32 axis_leftx = mac_gamepad.analog_stick_left_x.state;
-            s32 axis_lefty = mac_gamepad.analog_stick_left_y.state;
+            i32 axis_leftx = mac_gamepad.analog_stick_left_x.state;
+            i32 axis_lefty = mac_gamepad.analog_stick_left_y.state;
 
             new_controller->axis_leftx_average =
                 normalize_gamepad_axis_input(axis_leftx, 128, 128, 32);
@@ -915,7 +915,7 @@ internal void macos_device_input_callback(void *context,
     IOHIDElementRef element = IOHIDValueGetElement(value);
     u32 usagePage           = IOHIDElementGetUsagePage(element);
     u32 usage               = IOHIDElementGetUsage(element);
-    s32 state               = (s32)IOHIDValueGetIntegerValue(value);
+    i32 state               = (i32)IOHIDValueGetIntegerValue(value);
 
     //  printf("usage: %d\n", usage);
     struct macos_gamepad *gamepad = (struct macos_gamepad *)context;
@@ -941,7 +941,7 @@ internal void macos_device_input_callback(void *context,
     }
     else if (usagePage == kHIDPage_GenericDesktop)
     {
-        s32 analog =
+        i32 analog =
             IOHIDValueGetScaledValue(value, kIOHIDValueScaleTypeCalibrated);
 
         if (usage == kHIDUsage_GD_X)
@@ -1023,8 +1023,8 @@ internal void macos_device_callback(void *context,
         return;
     }
 
-    s32 vendorID  = 0;
-    s32 productID = 0;
+    i32 vendorID  = 0;
+    i32 productID = 0;
 
     {
         CFTypeRef ref =
@@ -1189,7 +1189,7 @@ internal void macos_audio_create(struct macos_audio_output *audio_output)
 {
     audio_output->channels             = 2;
     audio_output->sample_rate_khz      = 48000;
-    audio_output->bytes_per_sample     = sizeof(s16) * 2;
+    audio_output->bytes_per_sample     = sizeof(i16) * 2;
     audio_output->running_sample_index = 0;
 
     // Allocates a 2 second buffer
@@ -1214,7 +1214,7 @@ internal void macos_audio_create(struct macos_audio_output *audio_output)
     // Create a new unit
     AudioComponentInstance audio_unit;
     audio_output->audio_unit = &audio_unit;
-    s32 status = AudioComponentInstanceNew(output, audio_output->audio_unit);
+    i32 status = AudioComponentInstanceNew(output, audio_output->audio_unit);
     assert(audio_output->audio_unit);
 
     uint32_t inIOBufferFrameSize = 900; // TODO: make dependent on frame rate
@@ -1260,7 +1260,7 @@ internal void macos_audio_create(struct macos_audio_output *audio_output)
     stream_format.mBytesPerFrame    = audio_output->bytes_per_sample;
     stream_format.mBytesPerPacket   = audio_output->bytes_per_sample;
     stream_format.mChannelsPerFrame = audio_output->channels;
-    stream_format.mBitsPerChannel   = sizeof(s16) * 8;
+    stream_format.mBitsPerChannel   = sizeof(i16) * 8;
     stream_format.mFormatFlags =
         kAudioFormatFlagIsPacked | kAudioFormatFlagIsSignedInteger;
 
@@ -1294,8 +1294,8 @@ internal void macos_audio_create(struct macos_audio_output *audio_output)
 
 internal void macos_audio_fill_buffer(struct macos_audio_output *audio_output,
                                       struct game_audio_buffer *audio_buffer,
-                                      s32 byte_to_lock,
-                                      s32 bytes_to_write)
+                                      i32 byte_to_lock,
+                                      i32 bytes_to_write)
 {
     void *region_1    = (u8 *)audio_output->data + byte_to_lock;
     u32 region_1_size = bytes_to_write;
@@ -1308,7 +1308,7 @@ internal void macos_audio_fill_buffer(struct macos_audio_output *audio_output,
     u32 region_2_size = bytes_to_write - region_1_size;
 
     u32 region_1_sample_count = region_1_size / audio_output->bytes_per_sample;
-    s16 *sample_out           = (s16 *)region_1;
+    i16 *sample_out           = (i16 *)region_1;
 
     for (u32 i = 0; i < region_1_sample_count; i++)
     {
@@ -1319,7 +1319,7 @@ internal void macos_audio_fill_buffer(struct macos_audio_output *audio_output,
     }
 
     u32 region_2_sample_count = region_2_size / audio_output->bytes_per_sample;
-    sample_out                = (s16 *)region_2;
+    sample_out                = (i16 *)region_2;
 
     for (u32 i = 0; i < region_2_sample_count; i++)
     {

@@ -11,16 +11,16 @@
 
 struct macos_debug_time_marker
 {
-    s32 play_cursor;
-    s32 write_cursor;
+    i32 play_cursor;
+    i32 write_cursor;
 };
 
 struct macos_audio_output
 {
-    s16 channels;
-    s16 bytes_per_sample;
-    s32 sample_rate_khz;
-    s32 play_cursor;
+    i16 channels;
+    i16 bytes_per_sample;
+    i32 sample_rate_khz;
+    i32 play_cursor;
     u32 running_sample_index;
     size_t buffer_size;
     void *data;
@@ -35,11 +35,11 @@ struct macos_state
     void *replay_memory_block;
     FILE *replay_file_handle;
 
-    s32 input_recording_index;
+    i32 input_recording_index;
     FILE *recording_handle;
     b32 is_recording;
 
-    s32 input_playing_index;
+    i32 input_playing_index;
     FILE *playback_handle;
     b32 is_playing_back;
 };
@@ -47,7 +47,7 @@ struct macos_state
 struct DeviceUsage
 {
     u32 usage_id;
-    s32 state;
+    i32 state;
 };
 
 struct macos_gamepad
@@ -66,18 +66,23 @@ struct macos_gamepad
 internal void macos_audio_create(struct macos_audio_output *audio_output);
 internal void macos_audio_fill_buffer(struct macos_audio_output *audio_output,
                                       struct game_audio_buffer *audio_buffer,
-                                      s32 byte_to_lock, s32 bytes_to_write);
+                                      i32 byte_to_lock,
+                                      i32 bytes_to_write);
 
 // Device
 internal void macos_device_register(void *context);
-internal void macos_device_input_callback(void *context, IOReturn result,
-                                          void *sender, IOHIDValueRef value);
-internal void macos_device_callback(void *context, IOReturn result,
-                                    void *sender, IOHIDDeviceRef device);
+internal void macos_device_input_callback(void *context,
+                                          IOReturn result,
+                                          void *sender,
+                                          IOHIDValueRef value);
+internal void macos_device_callback(void *context,
+                                    IOReturn result,
+                                    void *sender,
+                                    IOHIDDeviceRef device);
 
 // Render
-internal void macos_buffer_resize(struct game_back_buffer *buffer, int width,
-                                  int height);
+internal void
+macos_buffer_resize(struct game_back_buffer *buffer, int width, int height);
 internal void macos_window_display(struct game_back_buffer *buffer,
                                    const NSWindow *window);
 

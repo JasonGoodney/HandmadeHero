@@ -1,9 +1,6 @@
 #include "handmade.h"
 #include <math.h>
 
-internal int round_ftoi(float value) { return (int)(value + 0.5f); }
-internal uint32_t round_ftou(float value) { return (uint32_t)(value + 0.5f); }
-
 internal void render_rectangle(struct game_back_buffer *buffer,
                                f32 minx,
                                f32 miny,
@@ -13,10 +10,10 @@ internal void render_rectangle(struct game_back_buffer *buffer,
                                f32 g,
                                f32 b)
 {
-    int min_x = round_ftoi(minx);
-    int min_y = round_ftoi(miny);
-    int max_x = round_ftoi(maxx);
-    int max_y = round_ftoi(maxy);
+    int min_x = round_f32_to_i32(minx);
+    int min_y = round_f32_to_i32(miny);
+    int max_x = round_f32_to_i32(maxx);
+    int max_y = round_f32_to_i32(maxy);
 
     if (min_x < 0)
     {
@@ -38,8 +35,8 @@ internal void render_rectangle(struct game_back_buffer *buffer,
     u8 *row = (u8 *)buffer->data + (min_x * buffer->bytes_per_pixel) +
               (min_y * buffer->pitch);
     uint32_t color =
-        (255 << 24 | round_ftou(b * 255.0f) << 16 |
-         round_ftou(g * 255.0f) << 8 | round_ftou(r * 255.0f) << 0);
+        (255 << 24 | round_f32_to_u32(b * 255.0f) << 16 |
+         round_f32_to_u32(g * 255.0f) << 8 | round_f32_to_u32(r * 255.0f) << 0);
 
     for (int y = min_y; y < max_y; y++)
     {
@@ -53,6 +50,75 @@ internal void render_rectangle(struct game_back_buffer *buffer,
     }
 }
 
+struct tilemap
+{
+    f32 upper_left_x;
+    f32 upper_left_y;
+    i32 width;
+    i32 height;
+    u32 *tiles;
+    u32 tile_width;
+    u32 tile_height;
+};
+struct world
+{
+    i32 width;
+    i32 height;
+    struct tilemap *tilemaps;
+};
+
+internal u32 get_tile_value_unsafe(struct tilemap *tilemap,
+                                   i32 tile_x,
+                                   i32 tile_y)
+{
+    return tilemap->tiles[tile_y * tilemap->width + tile_x];
+}
+
+internal struct tilemap *
+get_tilemap(struct world *world, i32 tilemap_x, i32 tilemap_y)
+{
+    struct tilemap *tilemap = NULL;
+
+    if ((tilemap_x >= 0 && tilemap_x < world->width) &&
+        (tilemap_y >= 0 && tilemap_y < world->height))
+    {
+        tilemap = &world->tilemaps[tilemap_y * world->width + tilemap_x];
+    }
+
+    return tilemap;
+}
+
+internal b32 is_tilemap_point_empty(struct tilemap *tilemap,
+                                    f32 test_x,
+                                    f32 test_y)
+{
+    b32 empty = 0;
+
+    i32 tile_x = truncate_f32_to_i32((test_x - tilemap->upper_left_x) /
+                                     tilemap->tile_width);
+    i32 tile_y = truncate_f32_to_i32((test_y - tilemap->upper_left_y) /
+                                     tilemap->tile_height);
+
+    if (tile_x >= 0 && tile_x < tilemap->width && tile_y >= 0 &&
+        tile_y < tilemap->height)
+    {
+        empty = (get_tile_value_unsafe(tilemap, tile_x, tile_y) == 0);
+    }
+    return empty;
+}
+
+internal b32 is_world_point_empty(
+    struct world *world, i32 tilemap_x, i32 tilemap_y, f32 test_x, f32 test_y)
+{
+    b32 empty               = 0;
+    struct tilemap *tilemap = get_tilemap(world, tilemap_x, tilemap_y);
+    if (tilemap)
+    {
+        empty = is_tilemap_point_empty(tilemap, test_x, test_y);
+    }
+    return empty;
+}
+
 // TODO: handle endianess for pixel buffer based on OS
 GAME_UPDATE_AND_RENDER(game_update_and_render)
 {
@@ -63,11 +129,80 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
 
     struct game_state *game_state = (struct game_state *)memory->permanent;
 
+#define tile_map_height 9
+#define tile_map_width 17
+    u32 tilemap00[tile_map_height][tile_map_width] = {
+        {1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1},
+        {1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
+        {1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0},
+        {1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1},
+        {1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1},
+        {1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
+        {1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1}};
+    u32 tilemap01[tile_map_height][tile_map_width] = {
+        {1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}};
+    u32 tilemap10[tile_map_height][tile_map_width] = {
+        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1}};
+    u32 tilemap11[tile_map_height][tile_map_width] = {
+        {1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}};
+
+    struct tilemap tilemaps[2][2];
+    tilemaps[0][0].upper_left_x = 0.0f;
+    tilemaps[0][0].upper_left_y = 0.0f;
+    tilemaps[0][0].tile_width   = 60.0f;
+    tilemaps[0][0].tile_height  = 60.0f;
+    tilemaps[0][0].height       = tile_map_height;
+    tilemaps[0][0].width        = tile_map_width;
+    tilemaps[0][0].tiles        = (u32 *)tilemap00;
+
+    tilemaps[0][1]       = tilemaps[0][0];
+    tilemaps[0][1].tiles = (u32 *)tilemap01;
+    tilemaps[1][0]       = tilemaps[0][0];
+    tilemaps[1][0].tiles = (u32 *)tilemap01;
+    tilemaps[1][1]       = tilemaps[0][0];
+    tilemaps[1][1].tiles = (u32 *)tilemap01;
+
+    struct tilemap *tilemap = &tilemaps[0][0];
+
+    struct world world = {0};
+    world.width        = 2;
+    world.height       = 2;
+    world.tilemaps     = (struct tilemap *)tilemaps;
+
+    f32 player_width  = 0.75f * tilemap->tile_width;
+    f32 player_height = 0.75f * tilemap->tile_height;
+
     if (!memory->is_initialized)
     {
         memory->is_initialized = 1;
-        game_state->player_x   = 60;
-        game_state->player_y   = 60 * 5;
+        game_state->player_x   = tilemap->tile_width * 3;
+        game_state->player_y   = tilemap->tile_height * 5;
     }
 
     // Input
@@ -101,10 +236,24 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
             {
                 d_player_x += 1.0f;
             }
-            d_player_x *= 64.0f;
-            d_player_y *= 64.0f;
-            game_state->player_x += d_player_x * input->delta_time_for_frame;
-            game_state->player_y += d_player_y * input->delta_time_for_frame;
+            d_player_x *= 128.0f;
+            d_player_y *= 128.0f;
+            f32 new_player_x =
+                game_state->player_x + d_player_x * input->delta_time_for_frame;
+            f32 new_player_y =
+                game_state->player_y + d_player_y * input->delta_time_for_frame;
+
+            b32 empty_tile =
+                is_tilemap_point_empty(tilemap, new_player_x, new_player_y);
+            empty_tile &= is_tilemap_point_empty(
+                tilemap, new_player_x + 0.5f * player_width, new_player_y);
+            empty_tile &= is_tilemap_point_empty(
+                tilemap, new_player_x - 0.5f * player_width, new_player_y);
+            if (empty_tile)
+            {
+                game_state->player_x = new_player_x;
+                game_state->player_y = new_player_y;
+            }
         }
     }
 
@@ -117,63 +266,46 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
                      0.0f,
                      1.0f);
 
-    u32 tile_map[9][17] = {{1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1},
-                           {1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
-                           {1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1},
-                           {1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1},
-                           {0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0},
-                           {1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1},
-                           {1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1},
-                           {1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
-                           {1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1}};
-
-    f32 padding_x   = 0.0f;
-    f32 padding_y   = 0.0f;
-    f32 tile_width  = 60.0f;
-    f32 tile_height = 60.0f;
-
-    for (int row = 0; row < 9; row++)
+    for (int row = 0; row < tile_map_height; row++)
     {
-        for (int col = 0; col < 17; col++)
+        for (int col = 0; col < tile_map_width; col++)
         {
-            u32 tile_id = tile_map[row][col];
+            u32 tile_id = get_tile_value_unsafe(tilemap, col, row);
             f32 gray    = 0.5f;
             if (tile_id == 1)
             {
                 gray = 1.0f;
             }
-            f32 min_x = padding_x + (f32)col * tile_width;
-            f32 min_y = padding_y + (f32)row * tile_height;
-            f32 max_x = min_x + tile_width;
-            f32 max_y = min_y + tile_height;
+            f32 min_x = tilemap->upper_left_x + (f32)col * tilemap->tile_width;
+            f32 min_y = tilemap->upper_left_y + (f32)row * tilemap->tile_height;
+            f32 max_x = min_x + tilemap->tile_width;
+            f32 max_y = min_y + tilemap->tile_height;
             render_rectangle(
                 buffer, min_x, min_y, max_x, max_y, gray, gray, gray);
         }
     }
 
-    f32 player_width  = 0.75f * tile_width;
-    f32 player_height = 0.75f * tile_height;
-    f32 min_x         = game_state->player_x - (player_width * 0.5f);
-    f32 min_y         = game_state->player_y - (player_height);
-    f32 max_x         = min_x + (player_width);
-    f32 max_y         = min_y + (player_height);
+    f32 min_x = game_state->player_x - (player_width * 0.5f);
+    f32 min_y = game_state->player_y - (player_height);
+    f32 max_x = min_x + (player_width);
+    f32 max_y = min_y + (player_height);
     render_rectangle(buffer, min_x, min_y, max_x, max_y, 0.0f, 1.0f, 1.0f);
 
     // Audio
 #if 0
     if (audio_buffer)
     {
-        s32 volume = 3000;
+        i32 volume = 3000;
         f32 wave_period =
             (f32)audio_buffer->sample_rate_khz / game_state->tone_hz;
-        s16 *sample_out = audio_buffer->samples;
+        i16 *sample_out = audio_buffer->samples;
 
         for (int i = 0; i < audio_buffer->sample_count; i++)
         {
 #if 1
-            s16 sample = sinf(game_state->t_sine) * volume;
+            i16 sample = sinf(game_state->t_sine) * volume;
 #else
-            s16 sample = 0;
+            i16 sample = 0;
 #endif
             *sample_out = sample;
             sample_out++;

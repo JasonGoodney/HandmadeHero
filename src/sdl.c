@@ -38,11 +38,11 @@ struct sdl_state
     void *replay_memory_block;
     FILE *replay_file_handle;
 
-    s32 input_recording_index;
+    i32 input_recording_index;
     FILE *recording_handle;
     b32 is_recording;
 
-    s32 input_playing_index;
+    i32 input_playing_index;
     FILE *playback_handle;
     b32 is_playing_back;
 };
@@ -232,12 +232,12 @@ internal void sdl_record_input(struct sdl_state *state,
     }
 }
 
-internal void sdl_begin_recording_input(struct sdl_state *state, s32 index)
+internal void sdl_begin_recording_input(struct sdl_state *state, i32 index)
 {
     if (state->replay_memory_block)
     {
         state->recording_handle = state->replay_file_handle;
-        fseek(state->recording_handle, (s64)state->memory_block_size, SEEK_SET);
+        fseek(state->recording_handle, (i64)state->memory_block_size, SEEK_SET);
         memcpy(state->replay_memory_block,
                state->memory_block,
                state->memory_block_size);
@@ -250,12 +250,12 @@ internal void sdl_end_recording_input(struct sdl_state *state)
     state->is_recording = 0;
 }
 
-internal void sdl_begin_input_playback(struct sdl_state *state, s32 index)
+internal void sdl_begin_input_playback(struct sdl_state *state, i32 index)
 {
     if (state->replay_memory_block)
     {
         state->playback_handle = state->replay_file_handle;
-        fseek(state->playback_handle, (s64)state->memory_block_size, SEEK_SET);
+        fseek(state->playback_handle, (i64)state->memory_block_size, SEEK_SET);
         memcpy(state->memory_block,
                state->replay_memory_block,
                state->memory_block_size);
@@ -329,7 +329,7 @@ int main(void)
     char filename[256];
     sprintf(filename, "replay_buffer.hmi");
     file_descriptor = open(filename, O_CREAT | O_RDWR, mode);
-    int result      = truncate(filename, (s64)game_memory.permanent_size);
+    int result      = truncate(filename, (i64)game_memory.permanent_size);
 
     if (result < 0)
     {
