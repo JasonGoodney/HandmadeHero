@@ -1,5 +1,5 @@
 #include "handmade.h"
-#include <math.h>
+#include "handmade_math.h"
 
 internal void
 render_rectangle(struct game_back_buffer *buffer,
@@ -61,16 +61,16 @@ realign_position(struct world *world, struct raw_position pos)
 
     f32 x             = pos.x - world->upper_left_x;
     f32 y             = pos.y - world->upper_left_y;
-    result.tile_x     = floor_f32_to_i32(x / world->tile_width);
-    result.tile_y     = floor_f32_to_i32(y / world->tile_height);
-    result.tile_rel_x = x - result.tile_x * world->tile_width;
-    result.tile_rel_y = y - result.tile_y * world->tile_height;
+    result.tile_x     = floor_f32_to_i32(x / world->tile_side_pixels);
+    result.tile_y     = floor_f32_to_i32(y / world->tile_side_pixels);
+    result.tile_rel_x = x - result.tile_x * world->tile_side_pixels;
+    result.tile_rel_y = y - result.tile_y * world->tile_side_pixels;
 
     // check x/y within bounds of a tile
     ASSERT(result.tile_rel_x >= 0);
     ASSERT(result.tile_rel_y >= 0);
-    ASSERT(result.tile_rel_x < world->tile_width);
-    ASSERT(result.tile_rel_y < world->tile_height);
+    ASSERT(result.tile_rel_x < world->tile_side_pixels);
+    ASSERT(result.tile_rel_y < world->tile_side_pixels);
 
     if (result.tile_x < 0)
     {
@@ -215,15 +215,15 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
         {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
         {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}};
 
-    struct world world   = {0};
-    world.width          = 2;
-    world.height         = 2;
-    world.upper_left_x   = 10.0f;
-    world.upper_left_y   = 10.0f;
-    world.tilemap_width  = TILEMAP_WIDTH;
-    world.tilemap_height = TILEMAP_HEIGHT;
-    world.tile_width     = 45.0f;
-    world.tile_height    = 45.0f;
+    struct world world     = {0};
+    world.width            = 2;
+    world.height           = 2;
+    world.tile_side_meters = 1.4f;
+    world.tile_side_pixels = 45;
+    world.upper_left_x     = (f32)world.tile_side_pixels / 2;
+    world.upper_left_y     = (f32)world.tile_side_pixels / 2;
+    world.tilemap_width    = TILEMAP_WIDTH;
+    world.tilemap_height   = TILEMAP_HEIGHT;
 
     struct tilemap tilemaps[world.height][world.width];
     tilemaps[0][0].tiles = (u32 *)tilemap00;
@@ -233,16 +233,16 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
 
     world.tilemaps = (struct tilemap *)tilemaps;
 
-    f32 player_width  = 0.75f * world.tile_width;
-    f32 player_height = 0.75f * world.tile_height;
+    f32 player_width  = 0.75f * (f32)world.tile_side_pixels;
+    f32 player_height = 0.75f * (f32)world.tile_side_pixels;
 
     if (!memory->is_initialized)
     {
         memory->is_initialized       = 1;
         game_state->player_tilemap_x = 0;
         game_state->player_tilemap_y = 0;
-        game_state->player_x         = world.tile_width * 3;
-        game_state->player_y         = world.tile_height * 5;
+        game_state->player_x         = world.tile_side_pixels * 3;
+        game_state->player_y         = world.tile_side_pixels * 5;
     }
 
     struct tilemap *tilemap = get_tilemap(
@@ -305,12 +305,14 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
                     realign_position(&world, test_center_pos);
                 game_state->player_tilemap_x = canon_pos.tilemap_x;
                 game_state->player_tilemap_y = canon_pos.tilemap_y;
-                game_state->player_x         = world.upper_left_x +
-                                       world.tile_width * canon_pos.tile_x +
-                                       canon_pos.tile_rel_x;
-                game_state->player_y = world.upper_left_y +
-                                       world.tile_height * canon_pos.tile_y +
-                                       canon_pos.tile_rel_y;
+                game_state->player_x =
+                    world.upper_left_x +
+                    world.tile_side_pixels * canon_pos.tile_x +
+                    canon_pos.tile_rel_x;
+                game_state->player_y =
+                    world.upper_left_y +
+                    world.tile_side_pixels * canon_pos.tile_y +
+                    canon_pos.tile_rel_y;
             }
         }
     }
@@ -334,10 +336,10 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
             {
                 gray = 1.0f;
             }
-            f32 min_x = world.upper_left_x + (f32)col * world.tile_width;
-            f32 min_y = world.upper_left_y + (f32)row * world.tile_height;
-            f32 max_x = min_x + world.tile_width;
-            f32 max_y = min_y + world.tile_height;
+            f32 min_x = world.upper_left_x + (f32)col * world.tile_side_pixels;
+            f32 min_y = world.upper_left_y + (f32)row * world.tile_side_pixels;
+            f32 max_x = min_x + world.tile_side_pixels;
+            f32 max_y = min_y + world.tile_side_pixels;
             render_rectangle(
                 buffer, min_x, min_y, max_x, max_y, gray, gray, gray);
         }
@@ -354,7 +356,7 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
                      world.upper_left_x,
                      0.0f,
                      world.upper_left_x +
-                         world.tilemap_width * world.tile_width,
+                         world.tilemap_width * world.tile_side_pixels,
                      world.upper_left_y,
                      0.0f,
                      0.0f,
@@ -364,13 +366,13 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
                      0.0f,
                      world.upper_left_x,
                      world.upper_left_y +
-                         world.tilemap_height * world.tile_height,
+                         world.tilemap_height * world.tile_side_pixels,
                      0.0f,
                      0.0f,
                      0.0f);
     render_rectangle(buffer,
                      world.upper_left_x +
-                         world.tilemap_width * world.tile_width,
+                         world.tilemap_width * world.tile_side_pixels,
                      0.0f,
                      buffer->width,
                      buffer->height,
@@ -380,8 +382,8 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
     render_rectangle(
         buffer,
         0.0f,
-        world.upper_left_y + world.tilemap_height * world.tile_height,
-        world.upper_left_x + world.tilemap_width * world.tile_width,
+        world.upper_left_y + world.tilemap_height * world.tile_side_pixels,
+        world.upper_left_x + world.tilemap_width * world.tile_side_pixels,
         buffer->height,
         0.0f,
         0.0f,

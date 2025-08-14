@@ -42,14 +42,14 @@ struct tilemap
 
 struct world
 {
+    f32 tile_side_meters;
+    i32 tile_side_pixels;
     f32 upper_left_x;
     f32 upper_left_y;
     i32 width;          // TileMapCountX
     i32 height;         // TileMapCountY
     i32 tilemap_width;  // CountX
     i32 tilemap_height; // CountY
-    f32 tile_width;
-    f32 tile_height;
     struct tilemap *tilemaps;
 };
 
@@ -105,33 +105,6 @@ process_gamepad_button_input(struct game_button_state *old_state,
     new_state->ended_pressed = is_pressed;
     new_state->half_transition_count +=
         (new_state->ended_pressed == old_state->ended_pressed) ? 0 : 1;
-}
-
-internal inline i32
-round_f32_to_i32(f32 value)
-{
-    return (i32)(value + 0.5f);
-}
-internal inline u32
-round_f32_to_u32(f32 value)
-{
-    return (u32)(value + 0.5f);
-}
-internal inline i32
-truncate_f32_to_i32(f32 value)
-{
-    return (i32)value;
-}
-internal inline u32
-truncate_f32_to_u32(f32 value)
-{
-    return (u32)value;
-}
-#include <math.h>
-internal inline i32
-floor_f32_to_i32(f32 value)
-{
-    return (i32)floorf(value);
 }
 
 #endif // HANDMADE_H
