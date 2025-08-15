@@ -51,49 +51,46 @@ render_rectangle(struct game_back_buffer *buffer,
     }
 }
 
-internal struct canonical_position
-realign_position(struct world *world, struct raw_position pos)
+internal void
+realign_coordinate(
+    struct world *world, i32 tile_count, i32 *tilemap, i32 *tile, f32 *tile_rel)
 {
-    struct canonical_position result = {0};
-
-    result.tilemap_x = pos.tilemap_x;
-    result.tilemap_y = pos.tilemap_y;
-
-    f32 x             = pos.x - world->upper_left_x;
-    f32 y             = pos.y - world->upper_left_y;
-    result.tile_x     = floor_f32_to_i32(x / world->tile_side_pixels);
-    result.tile_y     = floor_f32_to_i32(y / world->tile_side_pixels);
-    result.tile_rel_x = x - result.tile_x * world->tile_side_pixels;
-    result.tile_rel_y = y - result.tile_y * world->tile_side_pixels;
+    f32 offset = floor_f32_to_i32(*tile_rel / world->tile_side_meters);
+    *tile += offset;
+    *tile_rel -= offset * world->tile_side_meters;
 
     // check x/y within bounds of a tile
-    ASSERT(result.tile_rel_x >= 0);
-    ASSERT(result.tile_rel_y >= 0);
-    ASSERT(result.tile_rel_x < world->tile_side_pixels);
-    ASSERT(result.tile_rel_y < world->tile_side_pixels);
+    ASSERT(*tile_rel >= 0);
+    ASSERT(*tile_rel < world->tile_side_meters);
 
-    if (result.tile_x < 0)
+    if (*tile < 0)
     {
-        result.tile_x = world->tilemap_width + result.tile_x;
-        result.tilemap_x--;
+        *tile += tile_count;
+        *tilemap -= 1;
     }
-    if (result.tile_y < 0)
+    if (*tile >= tile_count)
     {
-        result.tile_y = world->tilemap_height + result.tile_y;
-        result.tilemap_y--;
+        *tile -= tile_count;
+        *tilemap += 1;
     }
-    if (result.tile_x >= world->tilemap_width)
-    {
-        result.tile_x = result.tile_x - world->tilemap_width;
-        result.tilemap_x++;
-    }
-    if (result.tile_y >= world->tilemap_height)
+}
 
-    {
-        result.tile_y = result.tile_y - world->tilemap_height;
-        result.tilemap_y++;
-    }
+internal struct canonical_position
+realign_position(struct world *world, struct canonical_position pos)
+{
+    struct canonical_position result = pos;
 
+    realign_coordinate(world,
+                       world->tilemap_width,
+                       &result.tilemap_x,
+                       &result.tile_x,
+                       &result.tile_rel_x);
+
+    realign_coordinate(world,
+                       world->tilemap_height,
+                       &result.tilemap_y,
+                       &result.tile_y,
+                       &result.tile_rel_y);
     return result;
 }
 
@@ -149,11 +146,10 @@ is_tilemap_point_empty(struct world *world,
 }
 
 internal b32
-is_world_point_empty(struct world *world, struct raw_position test_pos)
+is_world_point_empty(struct world *world, struct canonical_position canon_pos)
 {
     b32 empty = 0;
 
-    struct canonical_position canon_pos = realign_position(world, test_pos);
     struct tilemap *tilemap =
         get_tilemap(world, canon_pos.tilemap_x, canon_pos.tilemap_y);
     empty = is_tilemap_point_empty(
@@ -220,10 +216,12 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
     world.height           = 2;
     world.tile_side_meters = 1.4f;
     world.tile_side_pixels = 45;
-    world.upper_left_x     = (f32)world.tile_side_pixels / 2;
-    world.upper_left_y     = (f32)world.tile_side_pixels / 2;
-    world.tilemap_width    = TILEMAP_WIDTH;
-    world.tilemap_height   = TILEMAP_HEIGHT;
+    world.pixels_per_meter =
+        (f32)world.tile_side_pixels / world.tile_side_meters;
+    world.upper_left_x   = (f32)world.tile_side_pixels / 2;
+    world.upper_left_y   = (f32)world.tile_side_pixels / 2;
+    world.tilemap_width  = TILEMAP_WIDTH;
+    world.tilemap_height = TILEMAP_HEIGHT;
 
     struct tilemap tilemaps[world.height][world.width];
     tilemaps[0][0].tiles = (u32 *)tilemap00;
@@ -233,20 +231,23 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
 
     world.tilemaps = (struct tilemap *)tilemaps;
 
-    f32 player_width  = 0.75f * (f32)world.tile_side_pixels;
-    f32 player_height = 0.75f * (f32)world.tile_side_pixels;
+    f32 player_width  = 0.75f * (f32)world.tile_side_meters;
+    f32 player_height = (f32)world.tile_side_meters;
 
     if (!memory->is_initialized)
     {
-        memory->is_initialized       = 1;
-        game_state->player_tilemap_x = 0;
-        game_state->player_tilemap_y = 0;
-        game_state->player_x         = world.tile_side_pixels * 3;
-        game_state->player_y         = world.tile_side_pixels * 5;
+        memory->is_initialized            = 1;
+        game_state->player_pos.tilemap_x  = 0;
+        game_state->player_pos.tilemap_y  = 0;
+        game_state->player_pos.tile_x     = 3;
+        game_state->player_pos.tile_y     = 3;
+        game_state->player_pos.tile_rel_x = 5.0f;
+        game_state->player_pos.tile_rel_y = 5.0f;
     }
 
-    struct tilemap *tilemap = get_tilemap(
-        &world, game_state->player_tilemap_x, game_state->player_tilemap_y);
+    struct tilemap *tilemap = get_tilemap(&world,
+                                          game_state->player_pos.tilemap_x,
+                                          game_state->player_pos.tilemap_y);
     ASSERT(tilemap);
 
     // Input
@@ -280,39 +281,30 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
             {
                 d_player_x += 1.0f;
             }
-            d_player_x *= 128.0f;
-            d_player_y *= 128.0f;
-            f32 new_player_x =
-                game_state->player_x + d_player_x * input->delta_time_for_frame;
-            f32 new_player_y =
-                game_state->player_y + d_player_y * input->delta_time_for_frame;
+            d_player_x *= 2.0f;
+            d_player_y *= 2.0f;
 
-            struct raw_position test_center_pos = {game_state->player_tilemap_x,
-                                                   game_state->player_tilemap_y,
-                                                   new_player_x,
-                                                   new_player_y};
-            struct raw_position test_left_pos   = test_center_pos;
-            struct raw_position test_right_pos  = test_center_pos;
-            test_left_pos.x -= 0.5f * player_width;
-            test_right_pos.x += 0.5f * player_width;
+            struct canonical_position new_player_pos = game_state->player_pos;
+            new_player_pos.tile_rel_x +=
+                d_player_x * input->delta_time_for_frame;
+            new_player_pos.tile_rel_y +=
+                d_player_y * input->delta_time_for_frame;
+            new_player_pos = realign_position(&world, new_player_pos);
 
-            b32 empty_tile = is_world_point_empty(&world, test_center_pos);
-            empty_tile &= is_world_point_empty(&world, test_left_pos);
-            empty_tile &= is_world_point_empty(&world, test_right_pos);
+            struct canonical_position player_pos_left = new_player_pos;
+            player_pos_left.tile_rel_x -= 0.5f * player_width;
+            player_pos_left = realign_position(&world, player_pos_left);
+
+            struct canonical_position player_pos_right = new_player_pos;
+            player_pos_right.tile_rel_x += 0.5f * player_width;
+            player_pos_right = realign_position(&world, player_pos_right);
+
+            b32 empty_tile = is_world_point_empty(&world, new_player_pos);
+            empty_tile &= is_world_point_empty(&world, player_pos_left);
+            empty_tile &= is_world_point_empty(&world, player_pos_right);
             if (empty_tile)
             {
-                struct canonical_position canon_pos =
-                    realign_position(&world, test_center_pos);
-                game_state->player_tilemap_x = canon_pos.tilemap_x;
-                game_state->player_tilemap_y = canon_pos.tilemap_y;
-                game_state->player_x =
-                    world.upper_left_x +
-                    world.tile_side_pixels * canon_pos.tile_x +
-                    canon_pos.tile_rel_x;
-                game_state->player_y =
-                    world.upper_left_y +
-                    world.tile_side_pixels * canon_pos.tile_y +
-                    canon_pos.tile_rel_y;
+                game_state->player_pos = new_player_pos;
             }
         }
     }
@@ -336,6 +328,11 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
             {
                 gray = 1.0f;
             }
+            if (col == game_state->player_pos.tile_x &&
+                row == game_state->player_pos.tile_y)
+            {
+                gray = 0.0f;
+            }
             f32 min_x = world.upper_left_x + (f32)col * world.tile_side_pixels;
             f32 min_y = world.upper_left_y + (f32)row * world.tile_side_pixels;
             f32 max_x = min_x + world.tile_side_pixels;
@@ -345,11 +342,26 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
         }
     }
 
-    f32 min_x = game_state->player_x - (player_width * 0.5f);
-    f32 min_y = game_state->player_y - (player_height);
-    f32 max_x = min_x + (player_width);
-    f32 max_y = min_y + (player_height);
-    render_rectangle(buffer, min_x, min_y, max_x, max_y, 0.0f, 1.0f, 1.0f);
+    f32 player_min_x =
+        world.upper_left_x +
+        world.tile_side_pixels * game_state->player_pos.tile_x +
+        world.pixels_per_meter * game_state->player_pos.tile_rel_x -
+        (world.pixels_per_meter * player_width * 0.5f);
+    f32 player_min_y =
+        world.upper_left_y +
+        world.tile_side_pixels * game_state->player_pos.tile_y +
+        world.pixels_per_meter * game_state->player_pos.tile_rel_y -
+        (world.pixels_per_meter * player_height);
+    f32 player_max_x = player_min_x + (world.pixels_per_meter * player_width);
+    f32 player_max_y = player_min_y + (world.pixels_per_meter * player_height);
+    render_rectangle(buffer,
+                     player_min_x,
+                     player_min_y,
+                     player_max_x,
+                     player_max_y,
+                     0.0f,
+                     1.0f,
+                     1.0f);
 
     // render black border around world
     render_rectangle(buffer,

@@ -19,14 +19,6 @@
 global const u32 RENDER_WIDTH  = 960;
 global const u32 RENDER_HEIGHT = 540;
 
-struct game_state
-{
-    f32 player_tilemap_x;
-    f32 player_tilemap_y;
-    f32 player_x;
-    f32 player_y;
-};
-
 struct lib_game
 {
     b32 is_valid;
@@ -44,6 +36,7 @@ struct world
 {
     f32 tile_side_meters;
     i32 tile_side_pixels;
+    f32 pixels_per_meter;
     f32 upper_left_x;
     f32 upper_left_y;
     i32 width;          // TileMapCountX
@@ -63,12 +56,9 @@ struct canonical_position
     f32 tile_rel_y;
 };
 
-struct raw_position
+struct game_state
 {
-    i32 tilemap_x;
-    i32 tilemap_y;
-    f32 x;
-    f32 y;
+    struct canonical_position player_pos;
 };
 
 internal inline f32
