@@ -27,38 +27,46 @@ struct lib_game
     game_update_and_render_f *update_and_render;
 };
 
-struct tilemap
+struct tile_chunk
 {
     u32 *tiles;
 };
 
 struct world
 {
+    u32 chunk_shift;
+    u32 chunk_mask;
+    u32 chunk_dim;
+
     f32 tile_side_meters;
     i32 tile_side_pixels;
     f32 pixels_per_meter;
-    f32 upper_left_x;
-    f32 upper_left_y;
-    i32 width;          // TileMapCountX
-    i32 height;         // TileMapCountY
-    i32 tilemap_width;  // CountX
-    i32 tilemap_height; // CountY
-    struct tilemap *tilemaps;
+
+    i32 tile_chunk_count_x;
+    i32 tile_chunk_count_y;
+
+    struct tile_chunk *tile_chunks;
 };
 
-struct canonical_position
+struct tile_chunk_position
 {
-    i32 tilemap_x;
-    i32 tilemap_y;
-    i32 tile_x;
-    i32 tile_y;
+    u32 tile_chunk_x;
+    u32 tile_chunk_y;
+    u32 rel_tile_x;
+    u32 rel_tile_y;
+};
+
+struct world_position
+{
+    u32 abs_tile_x;
+    u32 abs_tile_y;
     f32 tile_rel_x;
     f32 tile_rel_y;
 };
 
 struct game_state
 {
-    struct canonical_position player_pos;
+    struct world_position player_pos;
 };
 
 internal inline f32
