@@ -13,6 +13,7 @@
 //
 
 #include "handmade_platform.h"
+#include "handmade_tile.h"
 #include <stdio.h>
 #include <time.h>
 
@@ -27,50 +28,15 @@ struct lib_game
     game_update_and_render_f *update_and_render;
 };
 
-struct tile_chunk
+typedef struct world
 {
-    u32 *tiles;
-};
-
-struct world
-{
-    u32 chunk_shift;
-    u32 chunk_mask;
-    u32 chunk_dim;
-
-    f32 tile_side_meters;
-    i32 tile_side_pixels;
-    f32 pixels_per_meter;
-
-    i32 tile_chunk_count_x;
-    i32 tile_chunk_count_y;
-
-    struct tile_chunk *tile_chunks;
-};
-
-struct tile_chunk_position
-{
-    u32 tile_chunk_x;
-    u32 tile_chunk_y;
-    u32 rel_tile_x;
-    u32 rel_tile_y;
-};
-
-struct world_position
-{
-    // NOTE: These are fixed point tile locations. The high
-    // bits are the tile chunk index, and the low buts are
-    // the tile index in the chunk.
-    u32 abs_tile_x;
-    u32 abs_tile_y;
-    f32 tile_rel_x;
-    f32 tile_rel_y;
-};
+    TileMap *tile_map;
+} World;
 
 struct game_state
 {
     f32 player_speed;
-    struct world_position player_pos;
+    TileMapPosition player_pos;
 };
 
 internal inline f32
