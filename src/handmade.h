@@ -58,6 +58,9 @@ struct tile_chunk_position
 
 struct world_position
 {
+    // NOTE: These are fixed point tile locations. The high
+    // bits are the tile chunk index, and the low buts are
+    // the tile index in the chunk.
     u32 abs_tile_x;
     u32 abs_tile_y;
     f32 tile_rel_x;
@@ -66,6 +69,7 @@ struct world_position
 
 struct game_state
 {
+    f32 player_speed;
     struct world_position player_pos;
 };
 

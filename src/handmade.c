@@ -61,13 +61,13 @@ realign_coordinate(struct world *world, u32 *tile, f32 *tile_rel)
     // NOTE: World is assumed to be toroidal topology.
     // If you step off one end you come back on the other.
 
-    f32 offset = floor_f32_to_i32(*tile_rel / world->tile_side_meters);
+    f32 offset = round_f32_to_i32(*tile_rel / world->tile_side_meters);
     *tile += offset;
     *tile_rel -= offset * world->tile_side_meters;
 
     // check x/y within bounds of a tile
-    ASSERT(*tile_rel >= 0);
-    ASSERT(*tile_rel <= world->tile_side_meters);
+    ASSERT(*tile_rel >= -0.5f * world->tile_side_meters);
+    ASSERT(*tile_rel <= 0.5f * world->tile_side_meters);
 }
 
 internal struct world_position
@@ -242,6 +242,8 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
 
     if (!memory->is_initialized)
     {
+        game_state->player_speed = 2.0f;
+
         game_state->player_pos.abs_tile_x = 3;
         game_state->player_pos.abs_tile_y = 3;
         game_state->player_pos.tile_rel_x = 5.0f;
@@ -281,8 +283,15 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
             {
                 d_player_x = 1.0f;
             }
-            d_player_x *= 2.0f;
-            d_player_y *= 2.0f;
+
+            if (controller->action_up.ended_pressed) {
+                game_state->player_speed = 10.0f;
+            }
+            if (controller->action_down.ended_pressed) {
+                game_state->player_speed = 2.0f;
+            }
+            d_player_x *= game_state->player_speed;
+            d_player_y *= game_state->player_speed;
 
             // TODO: Strafing is fast. Will fix once we have vectors.
             struct world_position new_player_pos = game_state->player_pos;
@@ -320,8 +329,8 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
                      0.0f,
                      0.0f);
 
-    f32 center_x = 0.5f * (f32)buffer->width;
-    f32 center_y = 0.5f * (f32)buffer->height;
+    f32 screen_center_x = 0.5f * (f32)buffer->width;
+    f32 screen_center_y = 0.5f * (f32)buffer->height;
 
     for (i32 rel_row = -10; rel_row < 10; rel_row++)
     {
@@ -340,33 +349,34 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
             {
                 gray = 0.0f;
             }
-            f32 min_x = center_x + (f32)rel_col * world.tile_side_pixels;
-            f32 min_y = center_y - (f32)rel_row * world.tile_side_pixels;
-            f32 max_x = min_x + world.tile_side_pixels;
-            f32 max_y = min_y - world.tile_side_pixels;
+
+            f32 cen_x = screen_center_x - (world.pixels_per_meter * game_state->player_pos.tile_rel_x) + (f32)rel_col * world.tile_side_pixels;
+            f32 cen_y = screen_center_y + (world.pixels_per_meter * game_state->player_pos.tile_rel_y) - (f32)rel_row * world.tile_side_pixels;
+            f32 min_x = cen_x - 0.5f * world.tile_side_pixels;
+            f32 min_y = cen_y - 0.5f * world.tile_side_pixels;
+            f32 max_x = cen_x + 0.5f * world.tile_side_pixels;
+            f32 max_y = cen_y + 0.5f * world.tile_side_pixels;
             render_rectangle(
-                buffer, min_x, max_y, max_x, min_y, gray, gray, gray);
+                buffer, min_x, min_y, max_x, max_y, gray, gray, gray);
         }
     }
 
     f32 player_left =
-        center_x +
-        (world.pixels_per_meter * game_state->player_pos.tile_rel_x) -
+        screen_center_x -
         (world.pixels_per_meter * player_width * 0.5f);
     f32 player_top =
-        center_y -
-        (world.pixels_per_meter * game_state->player_pos.tile_rel_y) -
+        screen_center_y -
         (world.pixels_per_meter * player_height);
-    f32 player_right  = player_left + (world.pixels_per_meter * player_width);
+    f32 player_right = player_left + (world.pixels_per_meter * player_width);
     f32 player_bottom = player_top + (world.pixels_per_meter * player_height);
     render_rectangle(buffer,
                      player_left,
                      player_top,
                      player_right,
                      player_bottom,
-                     0.0f,
                      1.0f,
-                     1.0f);
+                     1.0f,
+                     0.0f);
 
     // Audio
 #if 0

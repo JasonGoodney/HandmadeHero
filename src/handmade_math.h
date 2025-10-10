@@ -4,17 +4,20 @@
 #include "handmade_platform.h"
 #include <math.h>
 
+// TODO: Change to using our own implementation
+// indstead of the C runtime libaries.
+
 static inline i32
 round_f32_to_i32(f32 value)
 {
-    i32 result = (i32)(value + 0.5f);
+    i32 result = (i32)roundf(value);
     return result;
 }
 
 static inline u32
 round_f32_to_u32(f32 value)
 {
-    u32 result = (u32)(value + 0.5f);
+    u32 result = (u32)roundf(value);
     return result;
 }
 

@@ -234,6 +234,7 @@ internal void sdl_record_input(struct sdl_state *state,
 
 internal void sdl_begin_recording_input(struct sdl_state *state, i32 index)
 {
+    printf("Recording did begin.\n");
     if (state->replay_memory_block)
     {
         state->recording_handle = state->replay_file_handle;
@@ -247,11 +248,13 @@ internal void sdl_begin_recording_input(struct sdl_state *state, i32 index)
 
 internal void sdl_end_recording_input(struct sdl_state *state)
 {
+    printf("Recording did end.\n");
     state->is_recording = 0;
 }
 
 internal void sdl_begin_input_playback(struct sdl_state *state, i32 index)
 {
+    printf("Playback did begin.\n");
     if (state->replay_memory_block)
     {
         state->playback_handle = state->replay_file_handle;
@@ -265,6 +268,7 @@ internal void sdl_begin_input_playback(struct sdl_state *state, i32 index)
 
 internal void sdl_end_input_playback(struct sdl_state *state)
 {
+    printf("Playback did end.\n");
     state->is_playing_back = 0;
 }
 
@@ -544,6 +548,23 @@ int main(void)
                     if (key == SDLK_BACKSPACE)
                     {
                         process_keyboard_key_input(&new_keyboard->back,
+                                                   is_down);
+                    }
+
+                    if (key == SDLK_UP) {
+                        process_keyboard_key_input(&new_keyboard->action_up,
+                                                   is_down);
+                    }
+                    else if (key == SDLK_DOWN) {
+                        process_keyboard_key_input(&new_keyboard->action_down,
+                                                   is_down);
+                    }
+                    else if (key == SDLK_LEFT) {
+                        process_keyboard_key_input(&new_keyboard->action_left,
+                                                   is_down);
+                    }
+                    else if (key == SDLK_RIGHT) {
+                        process_keyboard_key_input(&new_keyboard->action_right,
                                                    is_down);
                     }
                 }
