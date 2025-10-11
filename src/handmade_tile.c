@@ -1,5 +1,6 @@
 #include "handmade_tile.h"
 #include "handmade_math.h"
+#include "handmade.h"
 
 internal void
 realign_coordinate(TileMap *tile_map, u32 *tile, f32 *tile_rel)
@@ -11,7 +12,7 @@ realign_coordinate(TileMap *tile_map, u32 *tile, f32 *tile_rel)
     // NOTE: tile_map is assumed to be toroidal topology.
     // If you step off one end you come back on the other.
 
-    f32 offset = round_f32_to_i32(*tile_rel / tile_map->tile_side_meters);
+    i32 offset = round_f32_to_i32(*tile_rel / tile_map->tile_side_meters);
     *tile += offset;
     *tile_rel -= offset * tile_map->tile_side_meters;
 
@@ -45,6 +46,19 @@ get_tile_value_unchecked(TileMap *tile_map,
     return tile_value;
 }
 
+internal void
+set_tile_value_unchecked(TileMap *tile_map,
+                         TileChunk *tile_chunk,
+                         u32 tile_x,
+                         u32 tile_y, u32 tile_value)
+{
+    ASSERT(tile_chunk);
+    ASSERT(tile_x < tile_map->chunk_dim);
+    ASSERT(tile_y < tile_map->chunk_dim);
+
+    tile_chunk->tiles[tile_y * tile_map->chunk_dim + tile_x] = tile_value;
+}
+
 internal u32
 get_tile_value_checked(TileMap *tile_map,
                        TileChunk *tile_chunk,
@@ -61,8 +75,21 @@ get_tile_value_checked(TileMap *tile_map,
     return tile_value;
 }
 
+internal void
+set_tile_value_checked(TileMap *tile_map,
+                       TileChunk *tile_chunk,
+                       u32 test_tile_x,
+                       u32 test_tile_y,
+                        u32 tile_value)
+{
+    if (tile_chunk)
+    {
+        set_tile_value_unchecked(tile_map, tile_chunk, test_tile_x, test_tile_y, tile_value);
+    }
+}
+
 internal TileChunk *
-get_tile_chunk(TileMap *tile_map, i32 tile_chunk_x, i32 tile_chunk_y)
+get_tile_chunk(TileMap *tile_map, u32 tile_chunk_x, u32 tile_chunk_y)
 {
     TileChunk *tile_chunk = 0;
 
@@ -115,4 +142,16 @@ is_tile_map_point_empty(TileMap *tile_map, TileMapPosition canon_pos)
     b32 empty = (tile_chunk_value == 0);
 
     return empty;
+}
+
+internal void
+set_tile_value(MemoryArena *arena, TileMap *tile_map, u32 abs_tile_x, u32 abs_tile_y, u32 tile_value) 
+{
+    TileChunkPosition chunk_pos =
+        get_chunk_position_for(tile_map, abs_tile_x, abs_tile_y);
+    TileChunk *tile_chunk =
+        get_tile_chunk(tile_map, chunk_pos.tile_chunk_x, chunk_pos.tile_chunk_y);
+
+    ASSERT(tile_chunk);
+    set_tile_value_checked(tile_map, tile_chunk, chunk_pos.rel_tile_x, chunk_pos.rel_tile_y, tile_value);
 }

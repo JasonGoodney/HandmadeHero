@@ -60,7 +60,7 @@ popd
 if [ "${DEBUG}" ]; then
     if [ "${CC}" == "clang" ]; then
         pushd ./build/bin/
-        lldb ./sdl/handmade
+        lldb ./sdl_handmade
         popd
         exit 1
     elif [ "${CC}" == "gcc" ]; then
@@ -69,7 +69,7 @@ if [ "${DEBUG}" ]; then
             exit 1
         fi
         pushd ./build/bin/
-        gdb ./sdl/handmade
+        gdb ./sdl_handmade
         popd
         exit 1
     fi

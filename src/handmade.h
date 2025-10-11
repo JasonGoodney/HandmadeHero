@@ -28,6 +28,13 @@ struct lib_game
     game_update_and_render_f *update_and_render;
 };
 
+typedef struct memory_arena
+{
+    memory_index size;
+    memory_index used;
+    u8 *base;
+} MemoryArena;
+
 typedef struct world
 {
     TileMap *tile_map;
@@ -35,7 +42,12 @@ typedef struct world
 
 struct game_state
 {
+    MemoryArena world_arena;
+    World *world;
+
     f32 player_speed;
+    f32 player_width;
+    f32 player_height;
     TileMapPosition player_pos;
 };
 

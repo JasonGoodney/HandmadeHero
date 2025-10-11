@@ -37,8 +37,8 @@ typedef struct tile_map
     i32 tile_side_pixels;
     f32 pixels_per_meter;
 
-    i32 tile_chunk_count_x;
-    i32 tile_chunk_count_y;
+    u32 tile_chunk_count_x;
+    u32 tile_chunk_count_y;
 
     TileChunk *tile_chunks;
 } TileMap;
