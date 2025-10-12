@@ -10,6 +10,8 @@ typedef struct tile_map_position
     // the tile index in the chunk.
     u32 abs_tile_x;
     u32 abs_tile_y;
+    u32 abs_tile_z;
+
     f32 tile_rel_x;
     f32 tile_rel_y;
 } TileMapPosition;
@@ -18,6 +20,8 @@ typedef struct tile_chunk_position
 {
     u32 tile_chunk_x;
     u32 tile_chunk_y;
+    u32 tile_chunk_z;
+
     u32 rel_tile_x;
     u32 rel_tile_y;
 } TileChunkPosition;
@@ -39,6 +43,7 @@ typedef struct tile_map
     // the giant pointer array.
     u32 tile_chunk_count_x;
     u32 tile_chunk_count_y;
+    u32 tile_chunk_count_z;
 
     TileChunk *tile_chunks;
 } TileMap;

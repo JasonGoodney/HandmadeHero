@@ -69,6 +69,7 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
 
         game_state->player_pos.abs_tile_x = 1;
         game_state->player_pos.abs_tile_y = 1;
+        game_state->player_pos.abs_tile_z = 0;
         game_state->player_pos.tile_rel_x = 5.0f;
         game_state->player_pos.tile_rel_y = 5.0f;
 
@@ -88,27 +89,54 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
         tile_map->chunk_dim          = (1 << tile_map->chunk_shift);
         tile_map->tile_chunk_count_x = 128;
         tile_map->tile_chunk_count_y = 128;
+        tile_map->tile_chunk_count_z = 2;
         tile_map->tile_side_meters   = 1.4f;
 
         tile_map->tile_chunks = PUSH_ARRAY(
             &game_state->world_arena,
-            (tile_map->tile_chunk_count_x * tile_map->tile_chunk_count_y),
+            (tile_map->tile_chunk_count_x * tile_map->tile_chunk_count_y *
+             tile_map->tile_chunk_count_z),
             TileChunk);
 
         u32 tiles_per_width     = 17;
         u32 tiles_per_height    = 9;
         u32 screen_x            = 0;
         u32 screen_y            = 0;
+        u32 abs_tile_z          = 0;
         u32 random_number_index = 0;
-        b32 door_left           = 0;
-        b32 door_right          = 0;
-        b32 door_top            = 0;
-        b32 door_bottom         = 0;
+
+        // TODO: Replace all this with real world generation!
+        b32 door_left   = 0;
+        b32 door_right  = 0;
+        b32 door_top    = 0;
+        b32 door_bottom = 0;
+        b32 door_up     = 0;
+        b32 door_down   = 0;
         for (u32 screen_index = 0; screen_index < 100; screen_index++)
         {
             ASSERT(random_number_index < ARRAY_SIZE(random_number_table));
-            u32 random_choice = random_number_table[random_number_index++] % 2;
-            if (random_choice == 0)
+            u32 random_choice;
+            if (door_up || door_down)
+            {
+                random_choice = random_number_table[random_number_index++] % 2;
+            }
+            else
+            {
+                random_choice = random_number_table[random_number_index++] % 3;
+            }
+
+            if (random_choice == 2)
+            {
+                if (abs_tile_z == 0)
+                {
+                    door_up = 1;
+                }
+                else
+                {
+                    door_down = 1;
+                }
+            }
+            else if (random_choice == 1)
             {
                 door_right = 1;
             }
@@ -123,6 +151,7 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
                 {
                     u32 abs_tile_x = screen_x * tiles_per_width + tile_x;
                     u32 abs_tile_y = screen_y * tiles_per_height + tile_y;
+
                     u32 tile_value = 1;
                     if ((tile_x == 0) &&
                         (!door_left || (tile_y != tiles_per_height / 2)))
@@ -148,10 +177,23 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
                         tile_value = 2;
                     }
 
+                    if (tile_x == 10 && tile_y == 6)
+                    {
+                        if (door_up)
+                        {
+                            tile_value = 3;
+                        }
+                        else if (door_down)
+                        {
+                            tile_value = 4;
+                        }
+                    }
+
                     set_tile_value(&game_state->world_arena,
                                    tile_map,
                                    abs_tile_x,
                                    abs_tile_y,
+                                   abs_tile_z,
                                    tile_value);
                 }
             }
@@ -161,11 +203,38 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
             door_right  = 0;
             door_top    = 0;
 
-            if (random_choice == 0)
+            if (door_up)
+            {
+                door_down = 1;
+                door_up   = 0;
+            }
+            else if (door_down)
+            {
+                door_up   = 1;
+                door_down = 0;
+            }
+            else
+            {
+                door_up   = 0;
+                door_down = 0;
+            }
+
+            if (random_choice == 2)
+            {
+                if (abs_tile_z == 0)
+                {
+                    abs_tile_z = 1;
+                }
+                else
+                {
+                    abs_tile_z = 0;
+                }
+            }
+            else if (random_choice == 1)
             {
                 screen_x += 1;
             }
-            else if (random_choice == 1)
+            else
             {
                 screen_y += 1;
             }
@@ -273,13 +342,18 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
         {
             u32 col     = game_state->player_pos.abs_tile_x + rel_col;
             u32 row     = game_state->player_pos.abs_tile_y + rel_row;
-            u32 tile_id = get_tile_value(tile_map, col, row);
+            u32 tile_id = get_tile_value(
+                tile_map, col, row, game_state->player_pos.abs_tile_z);
             if (tile_id > 0)
             {
                 f32 gray = 0.5f;
                 if (tile_id == 2)
                 {
                     gray = 1.0f;
+                }
+                if (tile_id > 2)
+                {
+                    gray = 0.25f;
                 }
                 if (col == game_state->player_pos.abs_tile_x &&
                     row == game_state->player_pos.abs_tile_y)
