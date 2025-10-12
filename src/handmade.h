@@ -87,4 +87,21 @@ process_gamepad_button_input(struct game_button_state *old_state,
         (new_state->ended_pressed == old_state->ended_pressed) ? 0 : 1;
 }
 
+internal void
+initialize_arena(MemoryArena *arena, memory_index size, u8 *base) {
+    arena->size = size;
+    arena->base = base;
+    arena->used = 0;
+}
+
+#define PUSH_SIZE(arena, type) (type *)push_size(arena, sizeof(type))
+#define PUSH_ARRAY(arena, count, type) (type *)push_size(arena, (count) * sizeof(type))
+void *
+push_size(MemoryArena *arena, memory_index size) {
+    ASSERT((arena->used + size) <= arena->size);
+    void *result = arena->base + arena->used;
+    arena->used += size;
+    return result;
+}
+
 #endif // HANDMADE_H

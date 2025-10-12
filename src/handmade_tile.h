@@ -27,16 +27,16 @@ typedef struct tile_chunk
     u32 *tiles;
 } TileChunk;
 
-typedef struct tile_map 
+typedef struct tile_map
 {
     u32 chunk_shift;
     u32 chunk_mask;
     u32 chunk_dim;
 
     f32 tile_side_meters;
-    i32 tile_side_pixels;
-    f32 pixels_per_meter;
 
+    // TODO: Real sparseness so anywhere in the world can be represented without
+    // the giant pointer array.
     u32 tile_chunk_count_x;
     u32 tile_chunk_count_y;
 
