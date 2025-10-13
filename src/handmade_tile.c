@@ -2,36 +2,6 @@
 #include "handmade.h"
 #include "handmade_math.h"
 
-internal void
-realign_coordinate(TileMap *tile_map, u32 *tile, f32 *tile_rel)
-{
-    // TODO: Need to do something that doesn't use the divide/multiply method
-    // for recanonicalizing because this this can end up rounding back on to
-    // the tile you just came from
-
-    // NOTE: tile_map is assumed to be toroidal topology.
-    // If you step off one end you come back on the other.
-
-    i32 offset = round_f32_to_i32(*tile_rel / tile_map->tile_side_meters);
-    *tile += offset;
-    *tile_rel -= offset * tile_map->tile_side_meters;
-
-    // check x/y within bounds of a tile
-    ASSERT(*tile_rel >= -0.5f * tile_map->tile_side_meters);
-    ASSERT(*tile_rel <= 0.5f * tile_map->tile_side_meters);
-}
-
-internal TileMapPosition
-realign_position(TileMap *tile_map, TileMapPosition pos)
-{
-    TileMapPosition result = pos;
-
-    realign_coordinate(tile_map, &result.abs_tile_x, &result.tile_rel_x);
-    realign_coordinate(tile_map, &result.abs_tile_y, &result.tile_rel_y);
-
-    return result;
-}
-
 internal u32
 get_tile_value_unchecked(TileMap *tile_map,
                          TileChunk *tile_chunk,
@@ -154,6 +124,15 @@ get_tile_value(TileMap *tile_map,
     return tile_value;
 }
 
+internal u32
+get_tile_value_from_position(TileMap *tile_map, TileMapPosition position)
+{
+    return get_tile_value(tile_map,
+                          position.abs_tile_x,
+                          position.abs_tile_y,
+                          position.abs_tile_z);
+}
+
 internal b32
 is_tile_map_point_empty(TileMap *tile_map, TileMapPosition canon_pos)
 {
@@ -161,7 +140,8 @@ is_tile_map_point_empty(TileMap *tile_map, TileMapPosition canon_pos)
                                           canon_pos.abs_tile_x,
                                           canon_pos.abs_tile_y,
                                           canon_pos.abs_tile_z);
-    b32 empty            = (tile_chunk_value == 1);
+    b32 empty = ((tile_chunk_value == 1) || (tile_chunk_value == 3) ||
+                 (tile_chunk_value == 4));
 
     return empty;
 }
@@ -197,4 +177,45 @@ set_tile_value(MemoryArena *arena,
                            chunk_pos.rel_tile_x,
                            chunk_pos.rel_tile_y,
                            tile_value);
+}
+
+// TODO: move to map positioning file
+internal void
+realign_coordinate(TileMap *tile_map, u32 *tile, f32 *tile_rel)
+{
+    // TODO: Need to do something that doesn't use the divide/multiply method
+    // for recanonicalizing because this this can end up rounding back on to
+    // the tile you just came from
+
+    // NOTE: tile_map is assumed to be toroidal topology.
+    // If you step off one end you come back on the other.
+
+    i32 offset = round_f32_to_i32(*tile_rel / tile_map->tile_side_meters);
+    *tile += offset;
+    *tile_rel -= offset * tile_map->tile_side_meters;
+
+    // check x/y within bounds of a tile
+    ASSERT(*tile_rel >= -0.5f * tile_map->tile_side_meters);
+    ASSERT(*tile_rel <= 0.5f * tile_map->tile_side_meters);
+}
+
+internal TileMapPosition
+realign_position(TileMap *tile_map, TileMapPosition pos)
+{
+    TileMapPosition result = pos;
+
+    realign_coordinate(tile_map, &result.abs_tile_x, &result.offset_x);
+    realign_coordinate(tile_map, &result.abs_tile_y, &result.offset_y);
+
+    return result;
+}
+
+internal b32
+on_same_tile(TileMapPosition *a, TileMapPosition *b)
+{
+    b32 result = a->abs_tile_x == b->abs_tile_x &&
+                 a->abs_tile_y == b->abs_tile_y &&
+                 a->abs_tile_z == b->abs_tile_z;
+
+    return result;
 }

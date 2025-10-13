@@ -70,8 +70,8 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
         game_state->player_pos.abs_tile_x = 1;
         game_state->player_pos.abs_tile_y = 1;
         game_state->player_pos.abs_tile_z = 0;
-        game_state->player_pos.tile_rel_x = 5.0f;
-        game_state->player_pos.tile_rel_y = 5.0f;
+        game_state->player_pos.offset_x   = 5.0f;
+        game_state->player_pos.offset_y   = 5.0f;
 
         size_t game_state_size = sizeof(struct game_state);
         initialize_arena(&game_state->world_arena,
@@ -116,6 +116,7 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
         {
             ASSERT(random_number_index < ARRAY_SIZE(random_number_table));
             u32 random_choice;
+            b32 created_z_plane = 0;
             if (door_up || door_down)
             {
                 random_choice = random_number_table[random_number_index++] % 2;
@@ -127,6 +128,7 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
 
             if (random_choice == 2)
             {
+                created_z_plane = 1;
                 if (abs_tile_z == 0)
                 {
                     door_up = 1;
@@ -203,20 +205,15 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
             door_right  = 0;
             door_top    = 0;
 
-            if (door_up)
+            if (created_z_plane)
             {
-                door_down = 1;
-                door_up   = 0;
-            }
-            else if (door_down)
-            {
-                door_up   = 1;
-                door_down = 0;
+                door_down = !door_down;
+                door_up   = !door_up;
             }
             else
             {
-                door_up   = 0;
                 door_down = 0;
+                door_up   = 0;
             }
 
             if (random_choice == 2)
@@ -299,19 +296,17 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
 
             // TODO: Strafing is fast. Will fix once we have vectors.
             TileMapPosition new_player_pos = game_state->player_pos;
-            new_player_pos.tile_rel_x +=
-                d_player_x * input->delta_time_for_frame;
-            new_player_pos.tile_rel_y +=
-                d_player_y * input->delta_time_for_frame;
+            new_player_pos.offset_x += d_player_x * input->delta_time_for_frame;
+            new_player_pos.offset_y += d_player_y * input->delta_time_for_frame;
             new_player_pos = realign_position(tile_map, new_player_pos);
             // TODO: Delta function that auto-recanonicalizes
 
             TileMapPosition player_pos_left = new_player_pos;
-            player_pos_left.tile_rel_x -= 0.5f * player_width;
+            player_pos_left.offset_x -= 0.5f * player_width;
             player_pos_left = realign_position(tile_map, player_pos_left);
 
             TileMapPosition player_pos_right = new_player_pos;
-            player_pos_right.tile_rel_x += 0.5f * player_width;
+            player_pos_right.offset_x += 0.5f * player_width;
             player_pos_right = realign_position(tile_map, player_pos_right);
 
             b32 empty_tile = is_tile_map_point_empty(tile_map, new_player_pos);
@@ -319,6 +314,19 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
             empty_tile &= is_tile_map_point_empty(tile_map, player_pos_right);
             if (empty_tile)
             {
+                if (!on_same_tile(&game_state->player_pos, &new_player_pos))
+                {
+                    u32 new_tile_value =
+                        get_tile_value_from_position(tile_map, new_player_pos);
+                    if (new_tile_value == 3)
+                    {
+                        new_player_pos.abs_tile_z++;
+                    }
+                    else if (new_tile_value == 4)
+                    {
+                        new_player_pos.abs_tile_z--;
+                    }
+                }
                 game_state->player_pos = new_player_pos;
             }
         }
@@ -363,11 +371,11 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
 
                 f32 cen_x =
                     screen_center_x -
-                    (pixels_per_meter * game_state->player_pos.tile_rel_x) +
+                    (pixels_per_meter * game_state->player_pos.offset_x) +
                     (f32)rel_col * tile_side_pixels;
                 f32 cen_y =
                     screen_center_y +
-                    (pixels_per_meter * game_state->player_pos.tile_rel_y) -
+                    (pixels_per_meter * game_state->player_pos.offset_y) -
                     (f32)rel_row * tile_side_pixels;
                 f32 min_x = cen_x - 0.5f * tile_side_pixels;
                 f32 min_y = cen_y - 0.5f * tile_side_pixels;

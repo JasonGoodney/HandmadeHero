@@ -12,8 +12,8 @@ typedef struct tile_map_position
     u32 abs_tile_y;
     u32 abs_tile_z;
 
-    f32 tile_rel_x;
-    f32 tile_rel_y;
+    f32 offset_x;
+    f32 offset_y;
 } TileMapPosition;
 
 typedef struct tile_chunk_position
