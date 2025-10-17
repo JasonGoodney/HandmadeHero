@@ -3,6 +3,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <sys/_types/_ssize_t.h>
+#include <sys/errno.h>
 #include <sys/fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -47,10 +48,11 @@ struct sdl_state
     b32 is_playing_back;
 };
 
-static void sdl_resize_window(SDL_Renderer *renderer,
-                              struct sdl_offscreen_buffer *buffer,
-                              int width,
-                              int height)
+static void
+sdl_resize_window(SDL_Renderer *renderer,
+                  struct sdl_offscreen_buffer *buffer,
+                  int width,
+                  int height)
 {
     int bytes_per_pixel = 4;
 
@@ -65,7 +67,7 @@ static void sdl_resize_window(SDL_Renderer *renderer,
 
     buffer->texture =
         SDL_CreateTexture(renderer,
-                          SDL_PIXELFORMAT_ABGR8888, // macos format
+                          SDL_PIXELFORMAT_ARGB8888, // macos format
                           SDL_TEXTUREACCESS_STREAMING,
                           width,
                           height);
@@ -81,10 +83,11 @@ static void sdl_resize_window(SDL_Renderer *renderer,
     buffer->pitch  = width * bytes_per_pixel;
 }
 
-void sdl_audio_device_callback(void *userdata,
-                               SDL_AudioStream *stream,
-                               int additional_amount,
-                               int total_amount)
+void
+sdl_audio_device_callback(void *userdata,
+                          SDL_AudioStream *stream,
+                          int additional_amount,
+                          int total_amount)
 {
     struct sdl_sound_output *sound = (struct sdl_sound_output *)userdata;
     additional_amount /= sizeof(float);
@@ -110,7 +113,8 @@ void sdl_audio_device_callback(void *userdata,
     }
 }
 
-static int sdl_get_window_refresh_rate(SDL_Window *window)
+static int
+sdl_get_window_refresh_rate(SDL_Window *window)
 {
     int default_rate            = 60;
     int window_index            = SDL_GetDisplayForWindow(window);
@@ -122,14 +126,15 @@ static int sdl_get_window_refresh_rate(SDL_Window *window)
     return mode->refresh_rate;
 }
 
-static float sdl_get_seconds_elapsed(uint64_t old_counter,
-                                     uint64_t current_counter)
+static float
+sdl_get_seconds_elapsed(uint64_t old_counter, uint64_t current_counter)
 {
     return (float)(current_counter - old_counter) /
            (float)SDL_GetPerformanceFrequency();
 }
 
-void copy(char *src, char *dst)
+void
+copy(char *src, char *dst)
 {
     u8 buffer[512];
 
@@ -159,7 +164,8 @@ void copy(char *src, char *dst)
     printf("finished copy from %s to %s\n", src, dst);
 }
 
-internal time_t sdl_get_last_file_write(char *path)
+internal time_t
+sdl_get_last_file_write(char *path)
 {
     time_t result           = 0;
     struct stat file_status = {0};
@@ -171,7 +177,8 @@ internal time_t sdl_get_last_file_write(char *path)
     return result;
 }
 
-internal struct lib_game sdl_load_game_code()
+internal struct lib_game
+sdl_load_game_code()
 {
     char *lib_path = "libhandmade.dylib";
     char *tmp_path = "tmp_libhandmade.dylib";
@@ -208,7 +215,8 @@ internal struct lib_game sdl_load_game_code()
     return game;
 }
 
-internal void sdl_unload_game_code(struct lib_game *game)
+internal void
+sdl_unload_game_code(struct lib_game *game)
 {
     if (game->lib_handle)
     {
@@ -221,8 +229,8 @@ internal void sdl_unload_game_code(struct lib_game *game)
 }
 
 #if HANDMADE_INTERNAL
-internal void sdl_record_input(struct sdl_state *state,
-                               struct game_input *input)
+internal void
+sdl_record_input(struct sdl_state *state, struct game_input *input)
 {
     size_t bytes_written =
         fwrite(input, sizeof(char), sizeof(*input), state->recording_handle);
@@ -232,7 +240,8 @@ internal void sdl_record_input(struct sdl_state *state,
     }
 }
 
-internal void sdl_begin_recording_input(struct sdl_state *state, i32 index)
+internal void
+sdl_begin_recording_input(struct sdl_state *state, i32 index)
 {
     printf("Recording did begin.\n");
     if (state->replay_memory_block)
@@ -246,13 +255,15 @@ internal void sdl_begin_recording_input(struct sdl_state *state, i32 index)
     }
 }
 
-internal void sdl_end_recording_input(struct sdl_state *state)
+internal void
+sdl_end_recording_input(struct sdl_state *state)
 {
     printf("Recording did end.\n");
     state->is_recording = 0;
 }
 
-internal void sdl_begin_input_playback(struct sdl_state *state, i32 index)
+internal void
+sdl_begin_input_playback(struct sdl_state *state, i32 index)
 {
     printf("Playback did begin.\n");
     if (state->replay_memory_block)
@@ -266,14 +277,15 @@ internal void sdl_begin_input_playback(struct sdl_state *state, i32 index)
     }
 }
 
-internal void sdl_end_input_playback(struct sdl_state *state)
+internal void
+sdl_end_input_playback(struct sdl_state *state)
 {
     printf("Playback did end.\n");
     state->is_playing_back = 0;
 }
 
-internal void sdl_playback_input(struct sdl_state *state,
-                                 struct game_input *input)
+internal void
+sdl_playback_input(struct sdl_state *state, struct game_input *input)
 {
     size_t bytes_read =
         fread(input, sizeof(char), sizeof(*input), state->playback_handle);
@@ -285,7 +297,107 @@ internal void sdl_playback_input(struct sdl_state *state,
 }
 #endif
 
-int main(void)
+#if HANDMADE_INTERNAL
+DEBUG_PLATFORM_READ_FILE(debug_platform_read_file)
+{
+    struct debug_read_file_result result = {0};
+
+    // open/create file
+    int file_handle = open(path, O_RDONLY);
+    if (file_handle == -1)
+    {
+        printf("DEBUG_PLATFORM_READ_FILE failed with error: %d\n", errno);
+        return result;
+    }
+
+    // get file size
+    struct stat file_status;
+    if (fstat(file_handle, &file_status) == -1)
+    {
+        printf("DEBUG_PLATFORM_READ_FILE failed with error: %d\n", errno);
+        close(file_handle);
+        return result;
+    }
+
+    result.size = safe_truncate_uint64(file_status.st_size);
+
+    // alloc file memory
+    result.data = malloc(result.size);
+    if (!result.data)
+    {
+        result.size = 0;
+        close(file_handle);
+        return result;
+    }
+
+    // read file
+    u32 bytes_to_read       = result.size;
+    u8 *next_bytes_location = (u8 *)result.data;
+    while (bytes_to_read)
+    {
+        ssize_t bytes_read =
+            read(file_handle, next_bytes_location, bytes_to_read);
+        if (bytes_read == -1)
+        {
+            printf("DEBUG_PLATFORM_READ_FILE failed with error: %d\n", errno);
+            free(result.data);
+            result.data = 0;
+            result.size = 0;
+            close(file_handle);
+            return result;
+        }
+
+        bytes_to_read -= bytes_read;
+        next_bytes_location += bytes_read;
+    }
+
+    // close handle
+    close(file_handle);
+
+    return result;
+}
+
+DEBUG_PLATFORM_WRITE_FILE(debug_platform_write_file)
+{
+    int file_handle =
+        open(path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    if (!file_handle)
+    {
+        return 0;
+    }
+
+    u32 bytes_to_write      = size;
+    u8 *next_bytes_location = (u8 *)data;
+    while (bytes_to_write)
+    {
+        ssize_t bytes_written =
+            write(file_handle, next_bytes_location, bytes_to_write);
+        if (bytes_written == -1)
+        {
+            printf("DEBUG_PLATFORM_WRITE_FILE failed with error: %d\n", errno);
+            close(file_handle);
+            return 0;
+        }
+
+        bytes_to_write -= bytes_written;
+        next_bytes_location += bytes_written;
+    }
+
+    close(file_handle);
+    return 1;
+}
+
+DEBUG_PLATFORM_FREE_FILE(debug_platform_free_file)
+{
+    if (data)
+    {
+        free(data);
+    }
+}
+#endif
+
+int
+main(void)
 {
     int monitor_update_hz          = 60;
     int game_update_hz             = monitor_update_hz / 2;
@@ -357,11 +469,11 @@ int main(void)
         exit(1);
     }
 
-    // #if HANDMADE_INTERNAL
-    //     memory.debug_platform_free_file  = debug_platform_free_file;
-    //     memory.debug_platform_read_file  = debug_platform_read_file;
-    //     memory.debug_platform_write_file = debug_platform_write_file;
-    // #endif
+#if HANDMADE_INTERNAL
+    game_memory.debug_platform_free_file  = debug_platform_free_file;
+    game_memory.debug_platform_read_file  = debug_platform_read_file;
+    game_memory.debug_platform_write_file = debug_platform_write_file;
+#endif
 
     struct lib_game game = sdl_load_game_code();
     // end game setup
@@ -551,19 +663,23 @@ int main(void)
                                                    is_down);
                     }
 
-                    if (key == SDLK_UP) {
+                    if (key == SDLK_UP)
+                    {
                         process_keyboard_key_input(&new_keyboard->action_up,
                                                    is_down);
                     }
-                    else if (key == SDLK_DOWN) {
+                    else if (key == SDLK_DOWN)
+                    {
                         process_keyboard_key_input(&new_keyboard->action_down,
                                                    is_down);
                     }
-                    else if (key == SDLK_LEFT) {
+                    else if (key == SDLK_LEFT)
+                    {
                         process_keyboard_key_input(&new_keyboard->action_left,
                                                    is_down);
                     }
-                    else if (key == SDLK_RIGHT) {
+                    else if (key == SDLK_RIGHT)
+                    {
                         process_keyboard_key_input(&new_keyboard->action_right,
                                                    is_down);
                     }

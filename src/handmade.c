@@ -37,11 +37,11 @@ render_rectangle(struct game_back_buffer *buffer,
 
     u8 *row = (u8 *)buffer->data + (min_x * buffer->bytes_per_pixel) +
               (min_y * buffer->pitch);
-    u32 alpha = 255 << 24;
-    u32 blue  = round_f32_to_u32(b * 255.0f) << 16;
-    u32 green = round_f32_to_u32(g * 255.0f) << 8;
-    u32 red   = round_f32_to_u32(r * 255.0f) << 0;
-    u32 color = (alpha | blue | green | red);
+    u32 c0    = 255 << 24;
+    u32 c1    = round_f32_to_u32(r * 255.0f) << 16;
+    u32 c2    = round_f32_to_u32(g * 255.0f) << 8;
+    u32 c3    = round_f32_to_u32(b * 255.0f) << 0;
+    u32 color = (c0 | c1 | c2 | c3);
 
     for (int y = min_y; y < max_y; y++)
     {
@@ -55,6 +55,118 @@ render_rectangle(struct game_back_buffer *buffer,
     }
 }
 
+internal void
+draw_bitmap(struct game_back_buffer *buffer, LoadedBitmap *bitmap, f32 x, f32 y)
+{
+
+    int min_x = round_f32_to_i32(x);
+    int min_y = round_f32_to_i32(y);
+    int max_x = round_f32_to_i32(x + (f32)bitmap->width);
+    int max_y = round_f32_to_i32(y + (f32)bitmap->height);
+
+    if (min_x < 0)
+    {
+        min_x = 0;
+    }
+    if (min_y < 0)
+    {
+        min_y = 0;
+    }
+    if (max_x > buffer->width)
+    {
+        max_x = buffer->width;
+    }
+    if (max_y > buffer->height)
+    {
+        max_y = buffer->height;
+    }
+
+    u32 *source_row = bitmap->pixels + (bitmap->width * (bitmap->height - 1));
+    u8 *dest_row    = (u8 *)buffer->data + (min_x * buffer->bytes_per_pixel) +
+                   (min_y * buffer->pitch);
+    for (int y = min_y; y < max_y; y++)
+    {
+        u32 *dest   = (u32 *)dest_row;
+        u32 *source = source_row;
+        for (int x = min_x; x < max_x; x++)
+        {
+            *dest++ = *source++;
+        }
+
+        dest_row += buffer->pitch;
+        source_row -= bitmap->width;
+    }
+}
+
+#pragma pack(push, 1)
+typedef struct bitmap_header
+{
+    u16 file_type;
+    u32 file_size;
+    u16 reserved1;
+    u16 reserved2;
+    u32 bitmap_offset;
+
+    u32 size;
+    i32 width;
+    i32 height;
+    u16 planes;
+    u16 bits_per_pixel;
+
+    u32 compression;
+    u32 size_of_bitmap;
+    i32 horizontal_resolution;
+    i32 vertical_resolution;
+    u32 colors_used;
+    u32 colors_important;
+
+    u32 red_mask;
+    u32 green_mask;
+    u32 blue_mask;
+} BitmapHeader;
+#pragma pack(pop)
+
+#if HANDMADE_INTERNAL
+internal LoadedBitmap
+debug_load_bmp(ThreadContext *context,
+               debug_platform_read_file_f *read_file,
+               char *filename)
+{
+    LoadedBitmap result = {0};
+
+    // NOTE: Byte order in memory is AABBGGRR, bottom up
+    // // NOTE: Byte order in memory is AARRGGBB, bottom up
+
+    struct debug_read_file_result read_result = read_file(context, filename);
+    if (read_result.data)
+    {
+        BitmapHeader *header = (BitmapHeader *)read_result.data;
+        u32 *pixels   = (u32 *)((u8 *)read_result.data + header->bitmap_offset);
+        result.pixels = pixels;
+        result.width  = header->width;
+        result.height = header->height;
+
+        // NOTE: If you are using the generically for some reason,
+        // please remember the BMP files can go in either direction
+        // and the height will be negative fro top-down.
+        // (Also, there can be compression, etc., etc.,... do not think
+        // this is complete BMP loading code)
+
+        u32 *source_dest = pixels;
+        for (i32 y = 0; y < header->height; y++)
+        {
+            for (i32 x = 0; x < header->width; x++)
+            {
+                *source_dest = (*source_dest >> 8) | (*source_dest << 24);
+                source_dest++;
+            }
+        }
+    }
+
+    return result;
+}
+#endif
+
 // TODO: handle endianess for pixel buffer based on OS
 GAME_UPDATE_AND_RENDER(game_update_and_render)
 {
@@ -67,6 +179,29 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
 
     if (!memory->is_initialized)
     {
+#if HANDMADE_INTERNAL
+        ThreadContext thread = {0};
+        // game_state->backdrop = debug_load_bmp(&thread,
+        //                                       memory->debug_platform_read_file,
+        //                                       "../../data/structured_art.bmp");
+        game_state->backdrop =
+            debug_load_bmp(&thread,
+                           memory->debug_platform_read_file,
+                           "../../data/test/test_background.bmp");
+        game_state->hero_head =
+            debug_load_bmp(&thread,
+                           memory->debug_platform_read_file,
+                           "../../data/test/test_hero_front_head.bmp");
+        game_state->hero_cape =
+            debug_load_bmp(&thread,
+                           memory->debug_platform_read_file,
+                           "../../data/test/test_hero_front_cape.bmp");
+        game_state->hero_torso =
+            debug_load_bmp(&thread,
+                           memory->debug_platform_read_file,
+                           "../../data/test/test_hero_front_torso.bmp");
+
+#endif
         game_state->player_speed = 2.0f;
 
         game_state->player_pos.abs_tile_x = 1;
@@ -334,92 +469,71 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
         }
     }
 
-    // render_rectangle(buffer,
-    //                  0.0f,
-    //                  0.0f,
-    //                  (f32)buffer->width,
-    //                  (f32)buffer->height,
-    //                  1.0f,
-    //                  0.0f,
-    //                  0.0f);
+    draw_bitmap(buffer, &game_state->backdrop, 0, 0);
 
     f32 screen_center_x = 0.5f * (f32)buffer->width;
     f32 screen_center_y = 0.5f * (f32)buffer->height;
 
-    // for (i32 rel_row = -10; rel_row < 10; rel_row++)
-    // {
-    //     for (i32 rel_col = -20; rel_col < 20; rel_col++)
-    //     {
-    //         u32 col     = game_state->player_pos.abs_tile_x + rel_col;
-    //         u32 row     = game_state->player_pos.abs_tile_y + rel_row;
-    //         u32 tile_id = get_tile_value(
-    //             tile_map, col, row, game_state->player_pos.abs_tile_z);
-    //         if (tile_id > 0)
-    //         {
-    //             f32 gray = 0.5f;
-    //             if (tile_id == 2)
-    //             {
-    //                 gray = 1.0f;
-    //             }
-    //             if (tile_id > 2)
-    //             {
-    //                 gray = 0.25f;
-    //             }
-    //             if (col == game_state->player_pos.abs_tile_x &&
-    //                 row == game_state->player_pos.abs_tile_y)
-    //             {
-    //                 gray = 0.0f;
-    //             }
+    for (i32 rel_row = -10; rel_row < 10; rel_row++)
+    {
+        for (i32 rel_col = -20; rel_col < 20; rel_col++)
+        {
+            u32 col     = game_state->player_pos.abs_tile_x + rel_col;
+            u32 row     = game_state->player_pos.abs_tile_y + rel_row;
+            u32 tile_id = get_tile_value(
+                tile_map, col, row, game_state->player_pos.abs_tile_z);
+            if (tile_id > 1)
+            {
+                f32 gray = 0.5f;
+                if (tile_id == 2)
+                {
+                    gray = 1.0f;
+                }
+                if (tile_id > 2)
+                {
+                    gray = 0.25f;
+                }
+                if (col == game_state->player_pos.abs_tile_x &&
+                    row == game_state->player_pos.abs_tile_y)
+                {
+                    gray = 0.0f;
+                }
 
-    //             f32 cen_x =
-    //                 screen_center_x -
-    //                 (pixels_per_meter * game_state->player_pos.offset_x) +
-    //                 (f32)rel_col * tile_side_pixels;
-    //             f32 cen_y =
-    //                 screen_center_y +
-    //                 (pixels_per_meter * game_state->player_pos.offset_y) -
-    //                 (f32)rel_row * tile_side_pixels;
-    //             f32 min_x = cen_x - 0.5f * tile_side_pixels;
-    //             f32 min_y = cen_y - 0.5f * tile_side_pixels;
-    //             f32 max_x = cen_x + 0.5f * tile_side_pixels;
-    //             f32 max_y = cen_y + 0.5f * tile_side_pixels;
-    //             render_rectangle(
-    //                 buffer, min_x, min_y, max_x, max_y, gray, gray, gray);
-    //         }
-    //     }
-    // }
+                f32 cen_x =
+                    screen_center_x -
+                    (pixels_per_meter * game_state->player_pos.offset_x) +
+                    (f32)rel_col * tile_side_pixels;
+                f32 cen_y =
+                    screen_center_y +
+                    (pixels_per_meter * game_state->player_pos.offset_y) -
+                    (f32)rel_row * tile_side_pixels;
+                f32 min_x = cen_x - 0.5f * tile_side_pixels;
+                f32 min_y = cen_y - 0.5f * tile_side_pixels;
+                f32 max_x = cen_x + 0.5f * tile_side_pixels;
+                f32 max_y = cen_y + 0.5f * tile_side_pixels;
+                render_rectangle(
+                    buffer, min_x, min_y, max_x, max_y, gray, gray, gray);
+            }
+        }
+    }
 
     f32 player_left =
         screen_center_x - (pixels_per_meter * player_width * 0.5f);
     f32 player_top    = screen_center_y - (pixels_per_meter * player_height);
     f32 player_right  = player_left + (pixels_per_meter * player_width);
     f32 player_bottom = player_top + (pixels_per_meter * player_height);
-    render_rectangle(buffer,
-                     player_left,
-                     player_top,
-                     player_right,
-                     player_bottom,
-                     1.0f,
-                     0.0f,
-                     0.0f);
 
     render_rectangle(buffer,
                      player_left,
                      player_top,
                      player_right,
                      player_bottom,
-                     0.0f,
+                     1.0f,
                      1.0f,
                      0.0f);
 
-    render_rectangle(buffer,
-                     player_left,
-                     player_top,
-                     player_right,
-                     player_bottom,
-                     0.0f,
-                     0.0f,
-                     1.0f);
+    // draw_bitmap(buffer, &game_state->hero_head, player_left, player_top);
+    draw_bitmap(buffer, &game_state->hero_head, 0, 0);
 
     // Audio
 #if 0

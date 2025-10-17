@@ -45,7 +45,7 @@ D_FLAGS="-DHANDMADE_MAC=1
          -DHANDMADE_INTERNAL=1"
 
 echo "Building Handmade Hero"
-mkdir -p ./build/bin/macos
+mkdir -p ./build/bin/
 SRC_DIR="../../../src/"
 
 pushd ./build/bin/
@@ -54,8 +54,8 @@ if ! $CC $CFLAGS $D_FLAGS $OSX_LD_FLAGS -fPIC -shared -o libhandmade.dylib "../.
 fi
 popd
 
-pushd ./build/bin/macos
-if ! $CC $CFLAGS $D_FLAGS $OSX_LD_FLAGS -o handmade ../libhandmade.dylib "../../../src/macos.m" ; then
+pushd ./build/bin/
+if ! $CC $CFLAGS $D_FLAGS $OSX_LD_FLAGS -o macos_handmade ./libhandmade.dylib "./../../src/macos.m" ; then
     exit 1
 fi
 popd
@@ -64,7 +64,7 @@ popd
 if [ "${DEBUG}" ]; then
     if [ "${CC}" == "clang" ]; then
         pushd ./build/bin/
-        lldb ./macos/handmade
+        lldb ./macos_handmade
         popd
         exit 1
     elif [ "${CC}" == "gcc" ]; then
@@ -73,7 +73,7 @@ if [ "${DEBUG}" ]; then
             exit 1
         fi
         pushd ./build/bin/
-        gdb ./macos/handmade
+        gdb ./macos_handmade
         popd
         exit 1
     fi
@@ -87,6 +87,6 @@ fi
 if [ "${RUN}" ]; then
     echo "Running Handmade Hero"
     pushd ./build/bin/
-    ./macos/handmade
+    ./macos_handmade
     popd
 fi

@@ -167,7 +167,7 @@ set_tile_value(MemoryArena *arena,
         u32 tile_count    = tile_map->chunk_dim * tile_map->chunk_dim;
         tile_chunk->tiles = PUSH_ARRAY(arena, tile_count, u32);
 
-        for (int tile_index = 0; tile_index < tile_count; tile_index++)
+        for (u32 tile_index = 0; tile_index < tile_count; tile_index++)
         {
             tile_chunk->tiles[tile_index] = 1;
         }

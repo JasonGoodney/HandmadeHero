@@ -40,6 +40,13 @@ typedef struct world
     TileMap *tile_map;
 } World;
 
+typedef struct loaded_bitmap
+{
+    i32 width;
+    i32 height;
+    u32 *pixels;
+} LoadedBitmap;
+
 struct game_state
 {
     MemoryArena world_arena;
@@ -49,6 +56,11 @@ struct game_state
     f32 player_width;
     f32 player_height;
     TileMapPosition player_pos;
+
+    LoadedBitmap backdrop;
+    LoadedBitmap hero_head;
+    LoadedBitmap hero_cape;
+    LoadedBitmap hero_torso;
 };
 
 internal inline f32

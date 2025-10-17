@@ -47,6 +47,11 @@ internal inline u32 safe_truncate_uint64(u64 value)
     return (result);
 }
 
+typedef struct thread_context
+{
+    int placeholder;
+} ThreadContext;
+
 // TODO: Services that the platform layer provides to the game
 #if HANDMADE_INTERNAL
 struct debug_read_file_result
@@ -55,15 +60,15 @@ struct debug_read_file_result
     void *data;
 };
 
-#define DEBUG_PLATFORM_FREE_FILE(func_name) void func_name(void *data)
+#define DEBUG_PLATFORM_FREE_FILE(func_name) void func_name(ThreadContext *context, void *data)
 typedef DEBUG_PLATFORM_FREE_FILE(debug_platform_free_file_f);
 
 #define DEBUG_PLATFORM_READ_FILE(func_name)                                    \
-    struct debug_read_file_result func_name(char *path)
+    struct debug_read_file_result func_name(ThreadContext *context, char *path)
 typedef DEBUG_PLATFORM_READ_FILE(debug_platform_read_file_f);
 
 #define DEBUG_PLATFORM_WRITE_FILE(func_name)                                   \
-    b32 func_name(char *path, u32 size, void *data)
+    b32 func_name(ThreadContext *context, char *path, u32 size, void *data)
 typedef DEBUG_PLATFORM_WRITE_FILE(debug_platform_write_file_f);
 
 #endif

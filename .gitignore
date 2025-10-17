@@ -1,4 +1,7 @@
 .DS_Store
 /build
 /scripts
-/.zed
+.*
+!/.gitignore
+!/.ignore
+!/.clang-format
