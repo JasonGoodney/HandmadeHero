@@ -1,6 +1,6 @@
 #include "handmade_tile.h"
 #include "handmade.h"
-#include "handmade_math.h"
+#include "handmade_intrinsics.h"
 
 internal u32
 get_tile_value_unchecked(TileMap *tile_map,

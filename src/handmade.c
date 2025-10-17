@@ -1,5 +1,5 @@
 #include "handmade.h"
-#include "handmade_math.h"
+#include "handmade_intrinsics.h"
 #include "handmade_random.h"
 #include "handmade_tile.c"
 
@@ -90,7 +90,25 @@ draw_bitmap(struct game_back_buffer *buffer, LoadedBitmap *bitmap, f32 x, f32 y)
         u32 *source = source_row;
         for (int x = min_x; x < max_x; x++)
         {
-            *dest++ = *source++;
+            f32 t  = (f32)((*source >> 24) & 0xFF) / 255.0f;
+            f32 sr = (f32)((*source >> 16) & 0xFF);
+            f32 sg = (f32)((*source >> 8) & 0xFF);
+            f32 sb = (f32)((*source >> 0) & 0xFF);
+
+            f32 dr = (f32)((*dest >> 16) & 0xFF);
+            f32 dg = (f32)((*dest >> 8) & 0xFF);
+            f32 db = (f32)((*dest >> 0) & 0xFF);
+
+            // NOTE: Linear alpha blend
+            // TODO: premultiplied alpha
+            f32 r = ((1.0f - t) * dr) + (t * sr);
+            f32 g = ((1.0f - t) * dg) + (t * sg);
+            f32 b = ((1.0f - t) * db) + (t * sb);
+
+            *dest = ((255 << 24) | ((u32)(r + 0.5f) << 16) |
+                     ((u32)(g + 0.5f) << 8) | ((u32)(b + 0.5f) << 0));
+            dest++;
+            source++;
         }
 
         dest_row += buffer->pitch;
@@ -134,13 +152,11 @@ debug_load_bmp(ThreadContext *context,
 {
     LoadedBitmap result = {0};
 
-    // NOTE: Byte order in memory is AABBGGRR, bottom up
-    // // NOTE: Byte order in memory is AARRGGBB, bottom up
-
     struct debug_read_file_result read_result = read_file(context, filename);
     if (read_result.data)
     {
         BitmapHeader *header = (BitmapHeader *)read_result.data;
+        ASSERT(header->compression == 3);
         u32 *pixels   = (u32 *)((u8 *)read_result.data + header->bitmap_offset);
         result.pixels = pixels;
         result.width  = header->width;
@@ -152,12 +168,33 @@ debug_load_bmp(ThreadContext *context,
         // (Also, there can be compression, etc., etc.,... do not think
         // this is complete BMP loading code)
 
+        // NOTE: Using compression mode 3
+        u32 red_mask   = header->red_mask;
+        u32 green_mask = header->green_mask;
+        u32 blue_mask  = header->blue_mask;
+        u32 composite  = (red_mask | blue_mask | green_mask);
+        u32 alpha_mask = ~composite;
+
+        BitScanResult red_shift   = bit_scan_least_signficant_bit(red_mask);
+        BitScanResult green_shift = bit_scan_least_signficant_bit(green_mask);
+        BitScanResult blue_shift  = bit_scan_least_signficant_bit(blue_mask);
+        BitScanResult alpha_shift = bit_scan_least_signficant_bit(alpha_mask);
+
+        ASSERT(red_shift.found);
+        ASSERT(green_shift.found);
+        ASSERT(blue_shift.found);
+        ASSERT(alpha_shift.found);
+
         u32 *source_dest = pixels;
         for (i32 y = 0; y < header->height; y++)
         {
             for (i32 x = 0; x < header->width; x++)
             {
-                *source_dest = (*source_dest >> 8) | (*source_dest << 24);
+                u32 *c       = source_dest;
+                *source_dest = (((*c >> alpha_shift.index) & 0xFF) << 24) |
+                               (((*c >> red_shift.index) & 0xFF) << 16) |
+                               (((*c >> green_shift.index) & 0xFF) << 8) |
+                               (((*c >> blue_shift.index) & 0xFF) << 0);
                 source_dest++;
             }
         }
@@ -181,9 +218,6 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
     {
 #if HANDMADE_INTERNAL
         ThreadContext thread = {0};
-        // game_state->backdrop = debug_load_bmp(&thread,
-        //                                       memory->debug_platform_read_file,
-        //                                       "../../data/structured_art.bmp");
         game_state->backdrop =
             debug_load_bmp(&thread,
                            memory->debug_platform_read_file,
@@ -532,8 +566,7 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
                      1.0f,
                      0.0f);
 
-    // draw_bitmap(buffer, &game_state->hero_head, player_left, player_top);
-    draw_bitmap(buffer, &game_state->hero_head, 0, 0);
+    draw_bitmap(buffer, &game_state->hero_head, player_left, player_top);
 
     // Audio
 #if 0

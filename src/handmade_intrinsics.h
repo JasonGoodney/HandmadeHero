@@ -1,5 +1,5 @@
-#ifndef HANDMADE_MATH_H
-#define HANDMADE_MATH_H
+#ifndef HANDMADE_INTRINSICS_H
+#define HANDMADE_INTRINSICS_H
 
 #include "handmade_platform.h"
 #include <math.h>
@@ -63,4 +63,31 @@ atan2_f32(f32 y, f32 x)
     return result;
 }
 
-#endif // HANDMADE_MATH_H
+typedef struct bit_scan_result
+{
+    b32 found;
+    u32 index;
+} BitScanResult;
+static inline BitScanResult
+bit_scan_least_signficant_bit(u32 value)
+{
+    BitScanResult result = {0};
+
+#if COMPILER_MSVC
+    result.found = _BitMaskForward((unsigned long *)&result.index);
+#else
+    for (u32 test = 0; test < 32; test++)
+    {
+        if (value & (1 << test))
+        {
+            result.index = test;
+            result.found = 1;
+            break;
+        }
+    }
+#endif
+
+    return result;
+}
+
+#endif // HANDMADE_INTRINSICS_H

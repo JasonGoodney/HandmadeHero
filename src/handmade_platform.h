@@ -1,6 +1,37 @@
 #ifndef HANDMADE_PLATFORM_H
 #define HANDMADE_PLATFORM_H
 
+//
+// Comilers
+//
+
+#if !defined(COMPILER_MSVC)
+#define COMPILER_MSVC 0
+#endif
+
+#if !defined(COMPILER_CLANG)
+#define COMPILER_CLANG 0
+#endif
+
+#if !COMPILER_MSVC && !COMPILER_CLANG
+#if _MSC_VER
+#undef COMPILER_CLANG
+#define COMPILER_MSCV 1
+#else
+#undef COMPILER_CLANG
+#define COMPILER_CLANG 1
+#endif
+#endif
+
+#if COMPILER_MSVC
+#include <intrin.h>
+#pragma intrinsic(_BitScanForward)
+#endif
+
+//
+// Types
+//
+
 #include <stdint.h>
 #include <stddef.h>
 
@@ -52,7 +83,9 @@ typedef struct thread_context
     int placeholder;
 } ThreadContext;
 
-// TODO: Services that the platform layer provides to the game
+//
+// Services that the platform layer provides to the game
+//
 #if HANDMADE_INTERNAL
 struct debug_read_file_result
 {
