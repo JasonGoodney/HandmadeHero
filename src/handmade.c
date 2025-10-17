@@ -37,9 +37,11 @@ render_rectangle(struct game_back_buffer *buffer,
 
     u8 *row = (u8 *)buffer->data + (min_x * buffer->bytes_per_pixel) +
               (min_y * buffer->pitch);
-    uint32_t color =
-        (255 << 24 | round_f32_to_u32(b * 255.0f) << 16 |
-         round_f32_to_u32(g * 255.0f) << 8 | round_f32_to_u32(r * 255.0f) << 0);
+    u32 alpha = 255 << 24;
+    u32 blue  = round_f32_to_u32(b * 255.0f) << 16;
+    u32 green = round_f32_to_u32(g * 255.0f) << 8;
+    u32 red   = round_f32_to_u32(r * 255.0f) << 0;
+    u32 color = (alpha | blue | green | red);
 
     for (int y = min_y; y < max_y; y++)
     {
@@ -332,60 +334,60 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
         }
     }
 
-    render_rectangle(buffer,
-                     0.0f,
-                     0.0f,
-                     (f32)buffer->width,
-                     (f32)buffer->height,
-                     1.0f,
-                     0.0f,
-                     0.0f);
+    // render_rectangle(buffer,
+    //                  0.0f,
+    //                  0.0f,
+    //                  (f32)buffer->width,
+    //                  (f32)buffer->height,
+    //                  1.0f,
+    //                  0.0f,
+    //                  0.0f);
 
     f32 screen_center_x = 0.5f * (f32)buffer->width;
     f32 screen_center_y = 0.5f * (f32)buffer->height;
 
-    for (i32 rel_row = -10; rel_row < 10; rel_row++)
-    {
-        for (i32 rel_col = -20; rel_col < 20; rel_col++)
-        {
-            u32 col     = game_state->player_pos.abs_tile_x + rel_col;
-            u32 row     = game_state->player_pos.abs_tile_y + rel_row;
-            u32 tile_id = get_tile_value(
-                tile_map, col, row, game_state->player_pos.abs_tile_z);
-            if (tile_id > 0)
-            {
-                f32 gray = 0.5f;
-                if (tile_id == 2)
-                {
-                    gray = 1.0f;
-                }
-                if (tile_id > 2)
-                {
-                    gray = 0.25f;
-                }
-                if (col == game_state->player_pos.abs_tile_x &&
-                    row == game_state->player_pos.abs_tile_y)
-                {
-                    gray = 0.0f;
-                }
+    // for (i32 rel_row = -10; rel_row < 10; rel_row++)
+    // {
+    //     for (i32 rel_col = -20; rel_col < 20; rel_col++)
+    //     {
+    //         u32 col     = game_state->player_pos.abs_tile_x + rel_col;
+    //         u32 row     = game_state->player_pos.abs_tile_y + rel_row;
+    //         u32 tile_id = get_tile_value(
+    //             tile_map, col, row, game_state->player_pos.abs_tile_z);
+    //         if (tile_id > 0)
+    //         {
+    //             f32 gray = 0.5f;
+    //             if (tile_id == 2)
+    //             {
+    //                 gray = 1.0f;
+    //             }
+    //             if (tile_id > 2)
+    //             {
+    //                 gray = 0.25f;
+    //             }
+    //             if (col == game_state->player_pos.abs_tile_x &&
+    //                 row == game_state->player_pos.abs_tile_y)
+    //             {
+    //                 gray = 0.0f;
+    //             }
 
-                f32 cen_x =
-                    screen_center_x -
-                    (pixels_per_meter * game_state->player_pos.offset_x) +
-                    (f32)rel_col * tile_side_pixels;
-                f32 cen_y =
-                    screen_center_y +
-                    (pixels_per_meter * game_state->player_pos.offset_y) -
-                    (f32)rel_row * tile_side_pixels;
-                f32 min_x = cen_x - 0.5f * tile_side_pixels;
-                f32 min_y = cen_y - 0.5f * tile_side_pixels;
-                f32 max_x = cen_x + 0.5f * tile_side_pixels;
-                f32 max_y = cen_y + 0.5f * tile_side_pixels;
-                render_rectangle(
-                    buffer, min_x, min_y, max_x, max_y, gray, gray, gray);
-            }
-        }
-    }
+    //             f32 cen_x =
+    //                 screen_center_x -
+    //                 (pixels_per_meter * game_state->player_pos.offset_x) +
+    //                 (f32)rel_col * tile_side_pixels;
+    //             f32 cen_y =
+    //                 screen_center_y +
+    //                 (pixels_per_meter * game_state->player_pos.offset_y) -
+    //                 (f32)rel_row * tile_side_pixels;
+    //             f32 min_x = cen_x - 0.5f * tile_side_pixels;
+    //             f32 min_y = cen_y - 0.5f * tile_side_pixels;
+    //             f32 max_x = cen_x + 0.5f * tile_side_pixels;
+    //             f32 max_y = cen_y + 0.5f * tile_side_pixels;
+    //             render_rectangle(
+    //                 buffer, min_x, min_y, max_x, max_y, gray, gray, gray);
+    //         }
+    //     }
+    // }
 
     f32 player_left =
         screen_center_x - (pixels_per_meter * player_width * 0.5f);
@@ -398,8 +400,26 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
                      player_right,
                      player_bottom,
                      1.0f,
+                     0.0f,
+                     0.0f);
+
+    render_rectangle(buffer,
+                     player_left,
+                     player_top,
+                     player_right,
+                     player_bottom,
+                     0.0f,
                      1.0f,
                      0.0f);
+
+    render_rectangle(buffer,
+                     player_left,
+                     player_top,
+                     player_right,
+                     player_bottom,
+                     0.0f,
+                     0.0f,
+                     1.0f);
 
     // Audio
 #if 0
