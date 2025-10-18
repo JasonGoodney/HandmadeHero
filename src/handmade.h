@@ -47,6 +47,15 @@ typedef struct loaded_bitmap
     u32 *pixels;
 } LoadedBitmap;
 
+typedef struct hero_bitmaps
+{
+    i32 align_x;
+    i32 align_y;
+    LoadedBitmap head;
+    LoadedBitmap torso;
+    LoadedBitmap cape;
+} HeroBitmaps;
+
 struct game_state
 {
     MemoryArena world_arena;
@@ -56,11 +65,11 @@ struct game_state
     f32 player_width;
     f32 player_height;
     TileMapPosition player_pos;
+    TileMapPosition camera_pos;
 
     LoadedBitmap backdrop;
-    LoadedBitmap hero_head;
-    LoadedBitmap hero_cape;
-    LoadedBitmap hero_torso;
+    HeroBitmaps hero_bitmaps[4];
+    u32 hero_facing_direction;
 };
 
 internal inline f32

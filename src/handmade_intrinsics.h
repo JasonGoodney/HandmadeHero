@@ -43,6 +43,13 @@ floor_f32_to_i32(f32 value)
 }
 
 static inline f32
+ceil_f32(f32 value)
+{
+    f32 result = ceilf(value);
+    return result;
+}
+
+static inline f32
 sin_f32(f32 value)
 {
     f32 result = sinf(value);

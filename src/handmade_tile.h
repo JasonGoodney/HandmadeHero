@@ -3,6 +3,13 @@
 
 #import "handmade_platform.h"
 
+typedef struct tile_map_difference
+{
+    f32 d_x;
+    f32 d_y;
+    f32 d_z;
+} TileMapDifference;
+
 typedef struct tile_map_position
 {
     // NOTE: These are fixed point tile locations. The high
