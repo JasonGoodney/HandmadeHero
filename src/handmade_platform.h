@@ -50,7 +50,7 @@ typedef size_t memory_index;
 
 #define internal static
 #define local static
-#define global static
+#define global_variable static
 
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
 #define MAX_GAMEPADS 4

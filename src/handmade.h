@@ -17,8 +17,8 @@
 #include <stdio.h>
 #include <time.h>
 
-global const u32 RENDER_WIDTH  = 960;
-global const u32 RENDER_HEIGHT = 540;
+global_variable const u32 RENDER_WIDTH  = 960;
+global_variable const u32 RENDER_HEIGHT = 540;
 
 struct lib_game
 {

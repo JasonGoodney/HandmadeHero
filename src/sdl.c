@@ -48,7 +48,7 @@ struct sdl_state
     b32 is_playing_back;
 };
 
-static void
+internal void
 sdl_resize_window(SDL_Renderer *renderer,
                   struct sdl_offscreen_buffer *buffer,
                   int width,
@@ -113,7 +113,7 @@ sdl_audio_device_callback(void *userdata,
     }
 }
 
-static int
+internal int
 sdl_get_window_refresh_rate(SDL_Window *window)
 {
     int default_rate            = 60;
@@ -126,7 +126,7 @@ sdl_get_window_refresh_rate(SDL_Window *window)
     return mode->refresh_rate;
 }
 
-static float
+internal float
 sdl_get_seconds_elapsed(uint64_t old_counter, uint64_t current_counter)
 {
     return (float)(current_counter - old_counter) /

@@ -20,7 +20,7 @@
 #include "handmade.h"
 #include "macos.h"
 
-global BOOL RUNNING;
+global_variable BOOL RUNNING;
 
 internal struct macos_gamepad *gamepad_handles[MAX_GAMEPADS];
 

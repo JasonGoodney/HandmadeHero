@@ -220,7 +220,7 @@ on_same_tile(TileMapPosition *a, TileMapPosition *b)
     return result;
 }
 
-static inline TileMapDifference
+internal inline TileMapDifference
 subtract_tile_map_position(TileMap *tile_map,
                            TileMapPosition *a,
                            TileMapPosition *b)
