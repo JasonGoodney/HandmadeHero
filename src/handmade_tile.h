@@ -1,7 +1,8 @@
 #ifndef HANDMADE_TILE_H
 #define HANDMADE_TILE_H
 
-#import "handmade_platform.h"
+#include "handmade_platform.h"
+#include "handmade_math.h"
 
 typedef struct tile_map_difference
 {
@@ -19,8 +20,8 @@ typedef struct tile_map_position
     u32 abs_tile_y;
     u32 abs_tile_z;
 
-    f32 offset_x;
-    f32 offset_y;
+    // NOTE: Offset from the tile's center
+    vec2 offset;
 } TileMapPosition;
 
 typedef struct tile_chunk_position

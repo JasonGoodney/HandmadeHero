@@ -1,5 +1,6 @@
 #include "handmade.h"
 #include "handmade_intrinsics.h"
+#include "handmade_math.h"
 #include "handmade_random.h"
 #include "handmade_tile.c"
 
@@ -472,8 +473,7 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
         game_state->player_pos.abs_tile_x = 1;
         game_state->player_pos.abs_tile_y = 1;
         game_state->player_pos.abs_tile_z = 0;
-        game_state->player_pos.offset_x   = 5.0f;
-        game_state->player_pos.offset_y   = 5.0f;
+        game_state->player_pos.offset     = vec2_new(5.0f, 5.0f);
         game_state->player_width  = 0.75f * (f32)tile_map->tile_side_meters;
         game_state->player_height = (f32)tile_map->tile_side_meters;
         game_state->player_speed  = 2.0f;
@@ -502,27 +502,26 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
         }
         else
         {
-            f32 d_player_x = 0.0f;
-            f32 d_player_y = 0.0f;
+            vec2 d_player = {0};
             if (controller->move_up.ended_pressed)
             {
                 game_state->hero_facing_direction = 0;
-                d_player_y                        = 1.0f;
+                d_player.y                        = 1.0f;
             }
             if (controller->move_down.ended_pressed)
             {
                 game_state->hero_facing_direction = 3;
-                d_player_y                        = -1.0f;
+                d_player.y                        = -1.0f;
             }
             if (controller->move_left.ended_pressed)
             {
                 game_state->hero_facing_direction = 2;
-                d_player_x                        = -1.0f;
+                d_player.x                        = -1.0f;
             }
             if (controller->move_right.ended_pressed)
             {
                 game_state->hero_facing_direction = 1;
-                d_player_x                        = 1.0f;
+                d_player.x                        = 1.0f;
             }
 
             if (controller->action_up.ended_pressed)
@@ -533,22 +532,26 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
             {
                 game_state->player_speed = 2.0f;
             }
-            d_player_x *= game_state->player_speed;
-            d_player_y *= game_state->player_speed;
 
-            // TODO: Strafing is fast. Will fix once we have vectors.
+            d_player = vec2_mul(d_player, game_state->player_speed);
+            if (d_player.x != 0.0f && d_player.y != 0.0f)
+            {
+                d_player = vec2_mul(d_player, 0.7071067812f);
+            }
+
             TileMapPosition new_player_pos = game_state->player_pos;
-            new_player_pos.offset_x += d_player_x * input->delta_time_for_frame;
-            new_player_pos.offset_y += d_player_y * input->delta_time_for_frame;
+            d_player = vec2_mul(d_player, input->delta_time_for_frame);
+            new_player_pos.offset =
+                vec2_add_vec2(new_player_pos.offset, d_player);
             new_player_pos = realign_position(tile_map, new_player_pos);
             // TODO: Delta function that auto-recanonicalizes
 
             TileMapPosition player_pos_left = new_player_pos;
-            player_pos_left.offset_x -= 0.5f * player_width;
+            player_pos_left.offset.x -= 0.5f * player_width;
             player_pos_left = realign_position(tile_map, player_pos_left);
 
             TileMapPosition player_pos_right = new_player_pos;
-            player_pos_right.offset_x += 0.5f * player_width;
+            player_pos_right.offset.x += 0.5f * player_width;
             player_pos_right = realign_position(tile_map, player_pos_right);
 
             b32 empty_tile = is_tile_map_point_empty(tile_map, new_player_pos);
@@ -633,11 +636,11 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
 
                 f32 cen_x =
                     screen_center_x -
-                    (pixels_per_meter * game_state->camera_pos.offset_x) +
+                    (pixels_per_meter * game_state->camera_pos.offset.x) +
                     (f32)rel_col * tile_side_pixels;
                 f32 cen_y =
                     screen_center_y +
-                    (pixels_per_meter * game_state->camera_pos.offset_y) -
+                    (pixels_per_meter * game_state->camera_pos.offset.y) -
                     (f32)rel_row * tile_side_pixels;
                 f32 min_x = cen_x - 0.5f * tile_side_pixels;
                 f32 min_y = cen_y - 0.5f * tile_side_pixels;

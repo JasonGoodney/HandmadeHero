@@ -204,8 +204,8 @@ realign_position(TileMap *tile_map, TileMapPosition pos)
 {
     TileMapPosition result = pos;
 
-    realign_coordinate(tile_map, &result.abs_tile_x, &result.offset_x);
-    realign_coordinate(tile_map, &result.abs_tile_y, &result.offset_y);
+    realign_coordinate(tile_map, &result.abs_tile_x, &result.offset.x);
+    realign_coordinate(tile_map, &result.abs_tile_y, &result.offset.y);
 
     return result;
 }
@@ -231,10 +231,12 @@ subtract_tile_map_position(TileMap *tile_map,
     f32 d_tile_y = (f32)a->abs_tile_y - (f32)b->abs_tile_y;
     f32 d_tile_z = (f32)a->abs_tile_z - (f32)b->abs_tile_z;
 
+    vec2 diff = vec2_sub_vec2(a->offset, b->offset);
+
     result.d_x =
-        tile_map->tile_side_meters * d_tile_x + (a->offset_x - b->offset_x);
+        tile_map->tile_side_meters * d_tile_x + (a->offset.x - b->offset.x);
     result.d_y =
-        tile_map->tile_side_meters * d_tile_y + (a->offset_y - b->offset_y);
+        tile_map->tile_side_meters * d_tile_y + (a->offset.y - b->offset.y);
 
     // TODO: Think about what we want to do about Z
     result.d_z = tile_map->tile_side_meters * d_tile_z;
