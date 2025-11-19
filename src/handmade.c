@@ -502,47 +502,74 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
         }
         else
         {
-            vec2 d_player = {0};
+            vec2 dd_player_pos = {0}; // acceleration; third derivative
             if (controller->move_up.ended_pressed)
             {
                 game_state->hero_facing_direction = 0;
-                d_player.y                        = 1.0f;
+                dd_player_pos.y                        = 1.0f;
             }
             if (controller->move_down.ended_pressed)
             {
                 game_state->hero_facing_direction = 3;
-                d_player.y                        = -1.0f;
+                dd_player_pos.y                        = -1.0f;
             }
             if (controller->move_left.ended_pressed)
             {
                 game_state->hero_facing_direction = 2;
-                d_player.x                        = -1.0f;
+                dd_player_pos.x                        = -1.0f;
             }
             if (controller->move_right.ended_pressed)
             {
                 game_state->hero_facing_direction = 1;
-                d_player.x                        = 1.0f;
+                dd_player_pos.x                        = 1.0f;
             }
 
+            if (dd_player_pos.x != 0.0f && dd_player_pos.y != 0.0f)
+            {
+                dd_player_pos = vec2_mul(dd_player_pos, 0.7071067812f);
+            }
+
+            // NOTE: My speed and friction are way higher 
+            // than casey's to feel tight for some reason.
             if (controller->action_up.ended_pressed)
             {
-                game_state->player_speed = 10.0f;
+                game_state->player_speed = 90.0f; // m/s^2
             }
             if (controller->action_down.ended_pressed)
             {
-                game_state->player_speed = 2.0f;
+                game_state->player_speed = 50.0f; // m/s^2
             }
-
-            d_player = vec2_mul(d_player, game_state->player_speed);
-            if (d_player.x != 0.0f && d_player.y != 0.0f)
-            {
-                d_player = vec2_mul(d_player, 0.7071067812f);
-            }
+            dd_player_pos = vec2_mul(dd_player_pos, game_state->player_speed);
+            // TODO: Ordinal differential equation for friction
+            dd_player_pos = vec2_add_vec2(
+                dd_player_pos,
+                vec2_mul(game_state->d_player_pos, -6.5f)
+            );
 
             TileMapPosition new_player_pos = game_state->player_pos;
-            d_player = vec2_mul(d_player, input->delta_time_for_frame);
-            new_player_pos.offset =
-                vec2_add_vec2(new_player_pos.offset, d_player);
+            // p_prime = (0.5*a*t^2) + (v*t) + p
+            // p_double_prime = v_prime = (a*t) + v
+            // p_triple_prime = v_double_prime = a = a
+            new_player_pos.offset = vec2_add_vec2(
+                vec2_add_vec2(
+                    vec2_mul(
+                        vec2_mul(dd_player_pos, 0.5f), 
+                        // power(input->delta_time_for_frame, 2.0f)
+                        square(input->delta_time_for_frame)
+                    ),
+                    vec2_mul(game_state->d_player_pos, input->delta_time_for_frame)
+                ),
+                new_player_pos.offset
+            );
+            // TODO: Basic velocity. Will be fancier when dealing with collisions.
+            game_state->d_player_pos = vec2_add_vec2(
+                vec2_mul(
+                    dd_player_pos, 
+                    input->delta_time_for_frame
+                ),
+                game_state->d_player_pos
+            );
+            
             new_player_pos = realign_position(tile_map, new_player_pos);
             // TODO: Delta function that auto-recanonicalizes
 

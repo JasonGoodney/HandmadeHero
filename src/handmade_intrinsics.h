@@ -70,6 +70,24 @@ atan2_f32(f32 y, f32 x)
     return result;
 }
 
+internal inline f32
+square(f32 num)
+{
+    f32 result = num * num;
+    return result;
+}
+
+internal inline f32
+power(f32 num, f32 exponent)
+{
+    f32 result = 1;
+    for (int i = 0; i < exponent; i++)
+    {
+        result *= num;
+    }
+    return result;
+}
+
 typedef struct bit_scan_result
 {
     b32 found;

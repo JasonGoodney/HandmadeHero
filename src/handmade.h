@@ -66,6 +66,7 @@ struct game_state
     f32 player_height;
     TileMapPosition player_pos;
     TileMapPosition camera_pos;
+    vec2 d_player_pos; // velocity; second derivative
 
     LoadedBitmap backdrop;
     HeroBitmaps hero_bitmaps[4];
