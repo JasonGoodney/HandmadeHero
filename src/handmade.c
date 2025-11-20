@@ -3,6 +3,7 @@
 #include "handmade_math.h"
 #include "handmade_random.h"
 #include "handmade_tile.c"
+#include "handmade_tile.h"
 
 internal void
 render_rectangle(struct game_back_buffer *buffer,
@@ -473,10 +474,10 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
         game_state->player_pos.abs_tile_x = 1;
         game_state->player_pos.abs_tile_y = 1;
         game_state->player_pos.abs_tile_z = 0;
-        game_state->player_pos.offset     = vec2_new(5.0f, 5.0f);
+        game_state->player_pos.offset     = new_vec2f32(5.0f, 5.0f);
         game_state->player_width  = 0.75f * (f32)tile_map->tile_side_meters;
         game_state->player_height = (f32)tile_map->tile_side_meters;
-        game_state->player_speed  = 2.0f;
+        game_state->player_speed  = 10.0f;
 
         memory->is_initialized = 1;
     }
@@ -506,70 +507,61 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
             if (controller->move_up.ended_pressed)
             {
                 game_state->hero_facing_direction = 0;
-                dd_player_pos.y                        = 1.0f;
+                dd_player_pos.y                   = 1.0f;
             }
             if (controller->move_down.ended_pressed)
             {
                 game_state->hero_facing_direction = 3;
-                dd_player_pos.y                        = -1.0f;
+                dd_player_pos.y                   = -1.0f;
             }
             if (controller->move_left.ended_pressed)
             {
                 game_state->hero_facing_direction = 2;
-                dd_player_pos.x                        = -1.0f;
+                dd_player_pos.x                   = -1.0f;
             }
             if (controller->move_right.ended_pressed)
             {
                 game_state->hero_facing_direction = 1;
-                dd_player_pos.x                        = 1.0f;
+                dd_player_pos.x                   = 1.0f;
             }
 
             if (dd_player_pos.x != 0.0f && dd_player_pos.y != 0.0f)
             {
-                dd_player_pos = vec2_mul(dd_player_pos, 0.7071067812f);
+                dd_player_pos = scale_vec2f32(dd_player_pos, 0.7071067812f);
             }
 
-            // NOTE: My speed and friction are way higher 
+            // NOTE: My speed and friction are way higher
             // than casey's to feel tight for some reason.
             if (controller->action_up.ended_pressed)
             {
-                game_state->player_speed = 90.0f; // m/s^2
+                game_state->player_speed = 50.0f; // m/s^2
             }
             if (controller->action_down.ended_pressed)
             {
-                game_state->player_speed = 50.0f; // m/s^2
+                game_state->player_speed = 10.0f; // m/s^2
             }
-            dd_player_pos = vec2_mul(dd_player_pos, game_state->player_speed);
+            dd_player_pos =
+                scale_vec2f32(dd_player_pos, game_state->player_speed);
             // TODO: Ordinal differential equation for friction
-            dd_player_pos = vec2_add_vec2(
-                dd_player_pos,
-                vec2_mul(game_state->d_player_pos, -6.5f)
-            );
+            dd_player_pos = add_vec2f32(
+                dd_player_pos, scale_vec2f32(game_state->d_player_pos, -1.5f));
 
             TileMapPosition new_player_pos = game_state->player_pos;
             // p_prime = (0.5*a*t^2) + (v*t) + p
             // p_double_prime = v_prime = (a*t) + v
             // p_triple_prime = v_double_prime = a = a
-            new_player_pos.offset = vec2_add_vec2(
-                vec2_add_vec2(
-                    vec2_mul(
-                        vec2_mul(dd_player_pos, 0.5f), 
-                        // power(input->delta_time_for_frame, 2.0f)
-                        square(input->delta_time_for_frame)
-                    ),
-                    vec2_mul(game_state->d_player_pos, input->delta_time_for_frame)
-                ),
-                new_player_pos.offset
-            );
-            // TODO: Basic velocity. Will be fancier when dealing with collisions.
-            game_state->d_player_pos = vec2_add_vec2(
-                vec2_mul(
-                    dd_player_pos, 
-                    input->delta_time_for_frame
-                ),
-                game_state->d_player_pos
-            );
-            
+            new_player_pos.offset = add_vec2f32(
+                add_vec2f32(scale_vec2f32(scale_vec2f32(dd_player_pos, 0.5f),
+                                          square(input->delta_time_for_frame)),
+                            scale_vec2f32(game_state->d_player_pos,
+                                          input->delta_time_for_frame)),
+                new_player_pos.offset);
+            // TODO: Basic velocity. Will be fancier when dealing with
+            // collisions.
+            game_state->d_player_pos = add_vec2f32(
+                scale_vec2f32(dd_player_pos, input->delta_time_for_frame),
+                game_state->d_player_pos);
+
             new_player_pos = realign_position(tile_map, new_player_pos);
             // TODO: Delta function that auto-recanonicalizes
 
@@ -581,10 +573,58 @@ GAME_UPDATE_AND_RENDER(game_update_and_render)
             player_pos_right.offset.x += 0.5f * player_width;
             player_pos_right = realign_position(tile_map, player_pos_right);
 
-            b32 empty_tile = is_tile_map_point_empty(tile_map, new_player_pos);
-            empty_tile &= is_tile_map_point_empty(tile_map, player_pos_left);
-            empty_tile &= is_tile_map_point_empty(tile_map, player_pos_right);
-            if (empty_tile)
+            b32 collided                  = 0;
+            TileMapPosition collision_pos = {0};
+            if (!is_tile_map_point_empty(tile_map, new_player_pos))
+            {
+                collision_pos = new_player_pos;
+                collided      = 1;
+            }
+            if (!is_tile_map_point_empty(tile_map, player_pos_right))
+            {
+                collision_pos = player_pos_right;
+                collided      = 1;
+            }
+            if (!is_tile_map_point_empty(tile_map, player_pos_left))
+            {
+                collision_pos = player_pos_left;
+                collided      = 1;
+            }
+
+            if (collided)
+            {
+                vec2 r = {.x = 0, .y = 0};
+                if (collision_pos.abs_tile_x <
+                    game_state->player_pos.abs_tile_x)
+                {
+                    r.x = 1;
+                    r.y = 0;
+                }
+                if (collision_pos.abs_tile_x >
+                    game_state->player_pos.abs_tile_x)
+                {
+                    r.x = -1;
+                    r.y = 0;
+                }
+                if (collision_pos.abs_tile_y <
+                    game_state->player_pos.abs_tile_y)
+                {
+                    r.x = 0;
+                    r.y = 1;
+                }
+                if (collision_pos.abs_tile_y >
+                    game_state->player_pos.abs_tile_y)
+                {
+                    r.x = 0;
+                    r.y = -1;
+                }
+                // v_prime = v - 2*(v transpose r) * r
+                // v_prime = v - 2*(v dot product r) * r
+                f32 dot = dot_vec2f32(game_state->d_player_pos, r);
+                game_state->d_player_pos = sub_vec2f32(
+                    game_state->d_player_pos, scale_vec2f32(r, dot * 1.0f));
+            }
+            else
             {
                 if (!on_same_tile(&game_state->player_pos, &new_player_pos))
                 {

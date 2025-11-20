@@ -1,6 +1,7 @@
 #include "handmade_tile.h"
 #include "handmade.h"
 #include "handmade_intrinsics.h"
+#include "handmade_math.h"
 
 internal u32
 get_tile_value_unchecked(TileMap *tile_map,
@@ -231,7 +232,7 @@ subtract_tile_map_position(TileMap *tile_map,
     f32 d_tile_y = (f32)a->abs_tile_y - (f32)b->abs_tile_y;
     f32 d_tile_z = (f32)a->abs_tile_z - (f32)b->abs_tile_z;
 
-    vec2 diff = vec2_sub_vec2(a->offset, b->offset);
+    vec2 diff = sub_vec2f32(a->offset, b->offset);
 
     result.d_x =
         tile_map->tile_side_meters * d_tile_x + (a->offset.x - b->offset.x);
